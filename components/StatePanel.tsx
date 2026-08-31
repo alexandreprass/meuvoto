@@ -8,25 +8,32 @@ type Props = {
   uf: string;
   results: ResultsPayload;
   onClose?: () => void;
+  mini?: boolean;
 };
 
-export function StatePanel({ uf, results, onClose }: Props) {
+export function StatePanel({ uf, results, onClose, mini }: Props) {
   const state = UF_MAP[uf];
   const tally = results.byState[uf];
   if (!state || !tally) return null;
 
   return (
-    <div className="rounded-2xl border border-neutral-200 bg-white p-4 shadow-xl shadow-neutral-900/5">
-      <div className="mb-3 flex items-start justify-between gap-3">
-        <div className="flex items-center gap-2">
+    <div
+      className={`border border-neutral-200 bg-white shadow-lg shadow-neutral-900/10 ${
+        mini ? "rounded-xl p-2" : "rounded-2xl p-4"
+      }`}
+    >
+      <div className={`flex items-start justify-between gap-2 ${mini ? "mb-1.5" : "mb-3"}`}>
+        <div className="flex items-center gap-1.5">
           <span
-            className="h-3 w-3 rounded-full"
+            className={mini ? "h-2 w-2 rounded-full" : "h-3 w-3 rounded-full"}
             style={{ backgroundColor: state.color }}
           />
           <div>
-            <p className="text-sm font-semibold text-neutral-950">{state.name}</p>
-            <p className="text-xs text-neutral-400">
-              {formatVotes(tally.total)} {tally.total === 1 ? "voto" : "votos"} neste estado
+            <p className={mini ? "text-[11px] font-semibold text-neutral-950" : "text-sm font-semibold text-neutral-950"}>
+              {state.name}
+            </p>
+            <p className={mini ? "text-[9px] text-neutral-400" : "text-xs text-neutral-400"}>
+              {formatVotes(tally.total)} {tally.total === 1 ? "voto" : "votos"}
             </p>
           </div>
         </div>
@@ -40,7 +47,7 @@ export function StatePanel({ uf, results, onClose }: Props) {
           </button>
         ) : null}
       </div>
-      <CandidateBars tallies={tally.candidates} compact />
+      <CandidateBars tallies={tally.candidates} compact={!mini} mini={mini} />
     </div>
   );
 }

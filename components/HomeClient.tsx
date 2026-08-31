@@ -1,23 +1,28 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Header } from "./Header";
-import { BrazilMap } from "./BrazilMap";
+import { BrazilMap, type MapHoverPos } from "./BrazilMap";
 import { CandidateBars } from "./CandidateBar";
 import { StatePanel } from "./StatePanel";
 import { VoteModal } from "./VoteModal";
+import { OpinionChat } from "./OpinionChat";
 import { emptyResults } from "@/lib/results-client";
 import { formatVotes, UF_MAP } from "@/lib/states";
 import type { MePayload, ResultsPayload } from "@/lib/types";
 
+type Tip = { uf: string; x: number; y: number };
+
 export function HomeClient() {
   const [results, setResults] = useState<ResultsPayload>(emptyResults());
   const [me, setMe] = useState<MePayload | null>(null);
-  const [hoverUf, setHoverUf] = useState<string | null>(null);
+  const [tip, setTip] = useState<Tip | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [office, setOffice] = useState("presidente");
   const [voteOpen, setVoteOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
+  const mapRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(async () => {
     const [r, m] = await Promise.all([
@@ -34,7 +39,15 @@ export function HomeClient() {
     return () => clearInterval(id);
   }, [load]);
 
-  const activeUf = hoverUf ?? pinnedUf;
+  const activeUf = tip?.uf ?? pinnedUf;
+
+  function handleHover(uf: string | null, pos?: MapHoverPos) {
+    if (!uf) {
+      setTip(null);
+      return;
+    }
+    setTip({ uf, x: pos?.x ?? 0, y: pos?.y ?? 0 });
+  }
 
   function handleOffice(id: string) {
     if (id !== "presidente") {
@@ -45,6 +58,13 @@ export function HomeClient() {
     setSoon(null);
   }
 
+  const mapWidth = mapRef.current?.clientWidth ?? 640;
+  const tipWidth = 148;
+  const tipLeft = tip
+    ? Math.min(Math.max(8, tip.x + 14), Math.max(8, mapWidth - tipWidth - 8))
+    : 0;
+  const tipTop = tip ? Math.max(8, tip.y - 12) : 0;
+
   return (
     <div className="flex min-h-full flex-col bg-white">
       <Header
@@ -52,6 +72,7 @@ export function HomeClient() {
         office={office}
         onOffice={handleOffice}
         onVote={() => setVoteOpen(true)}
+        onOpinion={() => setChatOpen(true)}
       />
 
       {soon ? (
@@ -79,31 +100,33 @@ export function HomeClient() {
             </p>
           </div>
 
-          <div className="relative">
+          <div ref={mapRef} className="relative">
             <BrazilMap
               activeUf={activeUf}
-              onHover={setHoverUf}
-              onSelect={(uf) => setPinnedUf((cur) => (cur === uf ? null : uf))}
+              onHover={handleHover}
+              onSelect={(uf) => {
+                setPinnedUf((cur) => (cur === uf ? null : uf));
+                setTip(null);
+              }}
             />
 
-            {activeUf && UF_MAP[activeUf] ? (
-              <div className="pointer-events-none absolute top-3 right-3 hidden w-[280px] lg:block">
-                <div className="pointer-events-auto">
-                  <StatePanel uf={activeUf} results={results} />
-                </div>
+            {tip && UF_MAP[tip.uf] ? (
+              <div
+                className="pointer-events-none absolute z-20 hidden w-[148px] lg:block"
+                style={{ left: tipLeft, top: tipTop }}
+              >
+                <StatePanel uf={tip.uf} results={results} mini />
               </div>
             ) : null}
           </div>
 
-          {activeUf ? (
+          {pinnedUf ? (
             <div className="mt-4 lg:hidden">
               <StatePanel
-                uf={activeUf}
+                uf={pinnedUf}
                 results={results}
-                onClose={() => {
-                  setPinnedUf(null);
-                  setHoverUf(null);
-                }}
+                mini
+                onClose={() => setPinnedUf(null)}
               />
             </div>
           ) : (
@@ -159,6 +182,16 @@ export function HomeClient() {
         onVoted={async () => {
           await load();
           setVoteOpen(false);
+        }}
+      />
+
+      <OpinionChat
+        open={chatOpen}
+        me={me}
+        onClose={() => setChatOpen(false)}
+        onVote={() => {
+          setChatOpen(false);
+          setVoteOpen(true);
         }}
       />
     </div>

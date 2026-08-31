@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { IBGE_TO_UF, UF_MAP } from "@/lib/states";
@@ -9,11 +9,22 @@ type GeoProps = { codarea?: string };
 type BrazilFeature = Feature<Geometry, GeoProps>;
 type BrazilCollection = FeatureCollection<Geometry, GeoProps>;
 
+export type MapHoverPos = { x: number; y: number };
+
 type Props = {
   activeUf: string | null;
-  onHover: (uf: string | null) => void;
+  onHover: (uf: string | null, pos?: MapHoverPos) => void;
   onSelect: (uf: string) => void;
 };
+
+function localPos(e: MouseEvent<SVGElement>): MapHoverPos {
+  const node = (e.currentTarget.ownerSVGElement ?? e.currentTarget) as SVGSVGElement;
+  const rect = node.getBoundingClientRect();
+  return {
+    x: e.clientX - rect.left,
+    y: e.clientY - rect.top,
+  };
+}
 
 const WIDTH = 640;
 const HEIGHT = 680;
@@ -68,6 +79,10 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
       className="h-auto w-full select-none"
       role="img"
       aria-label="Mapa do Brasil por estados"
+      onMouseMove={(e) => {
+        if (e.target === e.currentTarget) onHover(null);
+      }}
+      onMouseLeave={() => onHover(null)}
     >
       {ordered.map((feature, i) => {
         const ibge = String(feature.properties?.codarea ?? "");
@@ -93,10 +108,9 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
                 ? "drop-shadow(0 8px 16px rgba(0,0,0,.18))"
                 : "none",
             }}
-            onMouseEnter={() => onHover(state.uf)}
-            onMouseLeave={() => onHover(null)}
+            onMouseEnter={(e) => onHover(state.uf, localPos(e))}
+            onMouseMove={(e) => onHover(state.uf, localPos(e))}
             onFocus={() => onHover(state.uf)}
-            onBlur={() => onHover(null)}
             onClick={() => onSelect(state.uf)}
             tabIndex={0}
           >

@@ -67,9 +67,10 @@ Variáveis de ambiente:
 
 ```
 NODE_VERSION=22
-AUTH_SECRET=     (Generate no painel, ou cole um secret)
+AUTH_SECRET=     (Generate no painel)
 AUTH_TWITTER_ID=
 AUTH_TWITTER_SECRET=
+DATABASE_URL=    (Postgres — obrigatório para votos e chat não zerarem)
 ```
 
 `AUTH_URL` é preenchido sozinho com a URL do Render. Quando o domínio for `meuvoto.org`, defina:
@@ -83,7 +84,9 @@ No app do X, acrescente o callback:
 - `https://SEU-SERVICO.onrender.com/api/auth/callback/twitter`
 - `https://meuvoto.org/api/auth/callback/twitter`
 
-O plano Free apaga `data/votes.json` a cada deploy/reinício. Para guardar votos, no plano pago adicione um Disk com mount path `/opt/render/project/src/data`.
+O disco do Render Free apaga arquivos a cada deploy. Para votos, login e chat persistirem, crie um Postgres (Neon gratuito ou Postgres do Render) e cole a connection string em `DATABASE_URL`. Sem isso, os votos zeram a cada nova versão.
+
+No Neon: New Project → copie a URI (`postgresql://...`) → Render Environment → `DATABASE_URL`.
 
 ## Aviso
 

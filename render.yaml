@@ -19,3 +19,5 @@ services:
         sync: false
       - key: AUTH_TWITTER_SECRET
         sync: false
+      - key: DATABASE_URL
+        sync: false

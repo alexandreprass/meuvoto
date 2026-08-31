@@ -15,11 +15,19 @@ type Props = {
   office: string;
   onOffice: (id: string) => void;
   onVote: () => void;
+  onOpinion: () => void;
 };
 
-export function Header({ me, office, onOffice, onVote }: Props) {
+export function Header({ me, office, onOffice, onVote, onOpinion }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
+      <button
+        type="button"
+        onClick={onOpinion}
+        className="w-full bg-neutral-950 py-2.5 text-center text-xs font-bold tracking-[0.18em] text-white hover:bg-neutral-800 sm:text-sm"
+      >
+        DÊ SUA OPINIÃO
+      </button>
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center justify-between gap-6">
           <a href="/" className="flex items-center gap-2">

@@ -37,6 +37,8 @@ yarn-error.log*
 *.db
 *.db-journal
 data/votes.json.tmp
+data/app.json
+data/*.tmp
 
 # vercel
 .vercel
