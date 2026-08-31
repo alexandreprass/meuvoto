@@ -1,6 +1,4 @@
 import { randomUUID } from "crypto";
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from "fs";
-import { dirname, join } from "path";
 import { Pool } from "pg";
 
 export type UserRecord = {
@@ -32,22 +30,17 @@ export type MessageRecord = {
   createdAt: string;
 };
 
-type JsonStore = {
+type MemoryStore = {
   users: UserRecord[];
   votes: VoteRecord[];
   messages: MessageRecord[];
 };
 
-const DATA_PATH =
-  process.env.VOTES_PATH ??
-  join(process.env.DATA_DIR ?? join(process.cwd(), "data"), "app.json");
-const LEGACY_VOTES = join(process.cwd(), "data", "votes.json");
-
 const MAX_MESSAGES = 30;
+const memory: MemoryStore = { users: [], votes: [], messages: [] };
 
 let pool: Pool | null = null;
 let schemaReady = false;
-let fileQueue: Promise<unknown> = Promise.resolve();
 
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL?.trim();
@@ -103,56 +96,6 @@ async function ensureSchema(db: Pool) {
   schemaReady = true;
 }
 
-function withFile<T>(fn: () => T): Promise<T> {
-  const run = fileQueue.then(fn, fn);
-  fileQueue = run.then(
-    () => undefined,
-    () => undefined,
-  );
-  return run;
-}
-
-function emptyStore(): JsonStore {
-  return { users: [], votes: [], messages: [] };
-}
-
-function readFileStore(): JsonStore {
-  if (!existsSync(DATA_PATH)) {
-    if (existsSync(LEGACY_VOTES)) {
-      try {
-        const legacy = JSON.parse(readFileSync(LEGACY_VOTES, "utf8")) as {
-          votes?: VoteRecord[];
-        };
-        const store = emptyStore();
-        store.votes = Array.isArray(legacy.votes) ? legacy.votes : [];
-        writeFileStore(store);
-        return store;
-      } catch {
-        return emptyStore();
-      }
-    }
-    return emptyStore();
-  }
-  try {
-    const parsed = JSON.parse(readFileSync(DATA_PATH, "utf8")) as Partial<JsonStore>;
-    return {
-      users: Array.isArray(parsed.users) ? parsed.users : [],
-      votes: Array.isArray(parsed.votes) ? parsed.votes : [],
-      messages: Array.isArray(parsed.messages) ? parsed.messages : [],
-    };
-  } catch {
-    return emptyStore();
-  }
-}
-
-function writeFileStore(store: JsonStore) {
-  const dir = dirname(DATA_PATH);
-  if (!existsSync(dir)) mkdirSync(dir, { recursive: true });
-  const tmp = `${DATA_PATH}.tmp`;
-  writeFileSync(tmp, JSON.stringify(store, null, 2), "utf8");
-  renameSync(tmp, DATA_PATH);
-}
-
 function nowIso() {
   return new Date().toISOString();
 }
@@ -187,29 +130,25 @@ export async function upsertUser(input: {
     return;
   }
 
-  await withFile(() => {
-    const store = readFileStore();
-    const existing = store.users.find((u) => u.twitterId === input.twitterId);
-    const ts = nowIso();
-    if (existing) {
-      existing.username = input.username ?? existing.username;
-      existing.name = input.name ?? existing.name;
-      existing.email = input.email ?? existing.email;
-      existing.image = input.image ?? existing.image;
-      existing.lastLoginAt = ts;
-    } else {
-      store.users.push({
-        twitterId: input.twitterId,
-        username: input.username ?? null,
-        name: input.name ?? null,
-        email: input.email ?? null,
-        image: input.image ?? null,
-        createdAt: ts,
-        lastLoginAt: ts,
-      });
-    }
-    writeFileStore(store);
-  });
+  const existing = memory.users.find((u) => u.twitterId === input.twitterId);
+  const ts = nowIso();
+  if (existing) {
+    existing.username = input.username ?? existing.username;
+    existing.name = input.name ?? existing.name;
+    existing.email = input.email ?? existing.email;
+    existing.image = input.image ?? existing.image;
+    existing.lastLoginAt = ts;
+  } else {
+    memory.users.push({
+      twitterId: input.twitterId,
+      username: input.username ?? null,
+      name: input.name ?? null,
+      email: input.email ?? null,
+      image: input.image ?? null,
+      createdAt: ts,
+      lastLoginAt: ts,
+    });
+  }
 }
 
 export async function listVotes(): Promise<VoteRecord[]> {
@@ -235,7 +174,7 @@ export async function listVotes(): Promise<VoteRecord[]> {
       createdAt: r.created_at.toISOString(),
     }));
   }
-  return withFile(() => readFileStore().votes);
+  return memory.votes;
 }
 
 export async function findVote(twitterId: string): Promise<VoteRecord | null> {
@@ -265,9 +204,7 @@ export async function findVote(twitterId: string): Promise<VoteRecord | null> {
       createdAt: r.created_at.toISOString(),
     };
   }
-  return withFile(
-    () => readFileStore().votes.find((v) => v.twitterId === twitterId) ?? null,
-  );
+  return memory.votes.find((v) => v.twitterId === twitterId) ?? null;
 }
 
 export async function createVote(
@@ -279,11 +216,12 @@ export async function createVote(
     name: vote.twitterName,
   });
 
+  const existing = await findVote(vote.twitterId);
+  if (existing) return { ok: false, existing };
+
   const db = getPool();
   if (db) {
     await ensureSchema(db);
-    const existing = await findVote(vote.twitterId);
-    if (existing) return { ok: false, existing };
     await db.query(
       `INSERT INTO votes (twitter_id, twitter_user, twitter_name, candidate_id, state, created_at)
        VALUES ($1,$2,$3,$4,$5,NOW())`,
@@ -298,17 +236,11 @@ export async function createVote(
     return { ok: true };
   }
 
-  return withFile(() => {
-    const store = readFileStore();
-    const existing = store.votes.find((v) => v.twitterId === vote.twitterId);
-    if (existing) return { ok: false as const, existing };
-    store.votes.push({
-      ...vote,
-      createdAt: vote.createdAt ?? nowIso(),
-    });
-    writeFileStore(store);
-    return { ok: true as const };
+  memory.votes.push({
+    ...vote,
+    createdAt: vote.createdAt ?? nowIso(),
   });
+  return { ok: true };
 }
 
 export async function listMessages(): Promise<MessageRecord[]> {
@@ -339,10 +271,7 @@ export async function listMessages(): Promise<MessageRecord[]> {
       createdAt: r.created_at.toISOString(),
     }));
   }
-  return withFile(() => {
-    const msgs = readFileStore().messages;
-    return msgs.slice(-MAX_MESSAGES);
-  });
+  return memory.messages.slice(-MAX_MESSAGES);
 }
 
 export async function addMessage(input: {
@@ -388,11 +317,7 @@ export async function addMessage(input: {
     return message;
   }
 
-  return withFile(() => {
-    const store = readFileStore();
-    store.messages.push(message);
-    store.messages = store.messages.slice(-MAX_MESSAGES);
-    writeFileStore(store);
-    return message;
-  });
+  memory.messages.push(message);
+  memory.messages = memory.messages.slice(-MAX_MESSAGES);
+  return message;
 }
