@@ -84,15 +84,22 @@ No app do X, acrescente o callback:
 - `https://SEU-SERVICO.onrender.com/api/auth/callback/twitter`
 - `https://meuvoto.org/api/auth/callback/twitter`
 
-O disco do Render Free apaga arquivos a cada deploy. Use o **Postgres do Render**:
+O Postgres é o do **próprio Render** (igual o linhadireita). Não usa arquivo JSON em produção.
 
-1. Dashboard → **New → Postgres**
-2. Nome: `meuvoto-db` · mesma **region** do Web Service
-3. Quando ficar Available, abra o banco → **Connections** → copie **Internal Database URL**
-4. No Web Service `meuvoto` → **Environment** → `DATABASE_URL` = essa URL
-5. **Manual Deploy** no site
+Jeito mais direto:
 
-Sem `DATABASE_URL`, votos e chat zeram a cada versão.
+1. Render → **Blueprints** → **New Blueprint Instance** → repo `meuvoto`
+2. Aprova o `render.yaml`: ele cria `meuvoto-db` e liga `DATABASE_URL` sozinho (`fromDatabase`)
+
+Se o Web Service já existe:
+
+1. **New → Postgres** → nome `meuvoto-db` → mesma region do site
+2. No serviço **meuvoto** → **Environment** → **Add**
+3. Key: `DATABASE_URL`
+4. Não cola texto: escolhe **From Database** → `meuvoto-db` → **connection string**
+5. Save, rebuild and deploy
+
+O `npm start` roda `scripts/init-db.js` e cria as tabelas `users`, `votes` e `messages`.
 
 ## Aviso
 

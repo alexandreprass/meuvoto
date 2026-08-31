@@ -51,7 +51,14 @@ let fileQueue: Promise<unknown> = Promise.resolve();
 
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL?.trim();
-  if (!url) return null;
+  if (!url) {
+    if (process.env.RENDER) {
+      throw new Error(
+        "DATABASE_URL ausente. No Render: Environment → Add DATABASE_URL → From Database.",
+      );
+    }
+    return null;
+  }
   if (!pool) {
     pool = new Pool({
       connectionString: url,
