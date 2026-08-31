@@ -8,7 +8,8 @@ Senadores e deputados entram depois — a estrutura já reserva espaço.
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS 4
 - Auth.js v5 com OAuth 2.0 do X
-- Votos em `data/votes.json` (1 voto por `twitterId`)
+- Votos e mensagens em Postgres quando `DATABASE_URL` existe (1 voto por `twitterId`)
+- Modo local sem `DATABASE_URL` usa memória do processo, útil só para desenvolvimento
 
 ## Rodar local
 
@@ -85,6 +86,8 @@ No app do X, acrescente o callback:
 - `https://meuvoto.org/api/auth/callback/twitter`
 
 O Postgres é o do **próprio Render** (igual o linhadireita). Não usa arquivo JSON em produção.
+
+Se o log mostrar `DATABASE_URL vazia no Render`, o deploy buildou certo, mas o Web Service ainda não tem banco conectado. Sem `DATABASE_URL`, o app não sobe em produção para evitar perder votos, logins e mensagens em restart/redeploy.
 
 Jeito mais direto:
 

@@ -1,21 +1,26 @@
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { Pool } = require("pg");
 
 const url = (process.env.DATABASE_URL || "").trim();
 
+function shouldUseSsl(connectionString) {
+  return /[?&]sslmode=require\b/i.test(connectionString);
+}
+
 if (!url) {
   if (process.env.RENDER) {
     console.error(
-      "[init-db] DATABASE_URL vazia no Render. No Web Service, Environment → Add → From Database → connection string.",
+      "[init-db] DATABASE_URL vazia no Render. Conecte um Render Postgres ao Web Service: Environment -> Add -> From Database -> connection string.",
     );
     process.exit(1);
   }
-  console.log("[init-db] sem DATABASE_URL — modo local (arquivo JSON)");
+  console.log("[init-db] sem DATABASE_URL - modo local em memoria");
   process.exit(0);
 }
 
 const pool = new Pool({
   connectionString: url,
-  ssl: url.includes("localhost") ? undefined : { rejectUnauthorized: false },
+  ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined,
 });
 
 async function main() {

@@ -42,12 +42,16 @@ const memory: MemoryStore = { users: [], votes: [], messages: [] };
 let pool: Pool | null = null;
 let schemaReady = false;
 
+function shouldUseSsl(url: string) {
+  return /[?&]sslmode=require\b/i.test(url);
+}
+
 function getPool(): Pool | null {
   const url = process.env.DATABASE_URL?.trim();
   if (!url) {
     if (process.env.RENDER) {
       throw new Error(
-        "DATABASE_URL ausente. No Render: Environment → Add DATABASE_URL → From Database.",
+        "DATABASE_URL ausente no Render. Conecte um Render Postgres ao Web Service em Environment -> Add -> From Database -> connection string.",
       );
     }
     return null;
@@ -55,7 +59,7 @@ function getPool(): Pool | null {
   if (!pool) {
     pool = new Pool({
       connectionString: url,
-      ssl: url.includes("localhost") ? undefined : { rejectUnauthorized: false },
+      ssl: shouldUseSsl(url) ? { rejectUnauthorized: false } : undefined,
       max: 4,
     });
   }

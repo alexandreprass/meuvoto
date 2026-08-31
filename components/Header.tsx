@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { signIn, signOut } from "next-auth/react";
 import { XIcon } from "./XIcon";
 import type { MePayload } from "@/lib/types";
@@ -30,7 +31,7 @@ export function Header({ me, office, onOffice, onVote, onOpinion }: Props) {
       </button>
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex items-center justify-between gap-6">
-          <a href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-950 text-white">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
                 <path
@@ -46,7 +47,7 @@ export function Header({ me, office, onOffice, onVote, onOpinion }: Props) {
               meu<span className="text-emerald-600">voto</span>
               <span className="text-neutral-400">.org</span>
             </span>
-          </a>
+          </Link>
 
           <nav className="hidden items-center gap-1 rounded-full bg-neutral-100 p-1 md:flex">
             {OFFICES.map((item) => (

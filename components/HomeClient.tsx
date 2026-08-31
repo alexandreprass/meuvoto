@@ -23,6 +23,7 @@ export function HomeClient() {
   const [chatOpen, setChatOpen] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
+  const [mapWidth, setMapWidth] = useState(640);
 
   const load = useCallback(async () => {
     const [r, m] = await Promise.all([
@@ -34,10 +35,24 @@ export function HomeClient() {
   }, []);
 
   useEffect(() => {
-    load();
-    const id = setInterval(load, 8000);
-    return () => clearInterval(id);
+    const timeout = window.setTimeout(() => void load(), 0);
+    const interval = window.setInterval(() => void load(), 8000);
+    return () => {
+      window.clearTimeout(timeout);
+      window.clearInterval(interval);
+    };
   }, [load]);
+
+  useEffect(() => {
+    const node = mapRef.current;
+    if (!node) return;
+
+    const observer = new ResizeObserver(([entry]) => {
+      if (entry) setMapWidth(entry.contentRect.width);
+    });
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, []);
 
   const activeUf = tip?.uf ?? pinnedUf;
 
@@ -58,7 +73,6 @@ export function HomeClient() {
     setSoon(null);
   }
 
-  const mapWidth = mapRef.current?.clientWidth ?? 640;
   const tipWidth = 148;
   const tipLeft = tip
     ? Math.min(Math.max(8, tip.x + 14), Math.max(8, mapWidth - tipWidth - 8))

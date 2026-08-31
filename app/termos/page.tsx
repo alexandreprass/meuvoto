@@ -1,9 +1,11 @@
+import Link from "next/link";
+
 export default function TermosPage() {
   return (
     <main className="mx-auto max-w-2xl px-6 py-16">
-      <a href="/" className="text-sm text-neutral-400 hover:text-neutral-700">
+      <Link href="/" className="text-sm text-neutral-400 hover:text-neutral-700">
         ← meuvoto.org
-      </a>
+      </Link>
       <h1 className="mt-6 text-3xl font-semibold">Termos de uso</h1>
       <div className="mt-6 space-y-4 text-sm leading-relaxed text-neutral-600">
         <p>
