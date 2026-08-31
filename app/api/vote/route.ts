@@ -1,11 +1,18 @@
 import { auth } from "@/auth";
-import { CANDIDATES } from "@/lib/candidates";
-import { getResults } from "@/lib/results";
+import { getCandidateForOffice } from "@/lib/ballot";
+import { getResults, voteScope } from "@/lib/results";
+import type { OfficeId } from "@/lib/offices";
 import { UF_MAP } from "@/lib/states";
 import { createVote } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+function parseOffice(value?: string): OfficeId | null {
+  if (!value || value === "presidente") return "presidente";
+  if (value === "senador" || value === "deputado_federal" || value === "deputado_estadual") return value;
+  return null;
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -13,23 +20,24 @@ export async function POST(req: Request) {
 
   if (!twitterId) {
     return Response.json(
-      { error: "Entre com o X para votar. Cada conta tem direito a 1 voto." },
+      { error: "Entre com o X para votar. Cada conta tem direito a 1 voto por disputa." },
       { status: 401 },
     );
   }
 
-  let body: { candidateId?: string; state?: string };
+  let body: { office?: string; candidateId?: string; state?: string };
   try {
     body = await req.json();
   } catch {
     return Response.json({ error: "Requisição inválida." }, { status: 400 });
   }
 
+  const office = parseOffice(body.office);
   const candidateId = body.candidateId?.trim();
   const state = body.state?.trim().toUpperCase();
 
-  if (!candidateId || !CANDIDATES.some((c) => c.id === candidateId)) {
-    return Response.json({ error: "Candidato inválido." }, { status: 400 });
+  if (!office) {
+    return Response.json({ error: "Cargo inválido." }, { status: 400 });
   }
 
   if (!state || !UF_MAP[state]) {
@@ -39,21 +47,33 @@ export async function POST(req: Request) {
     );
   }
 
+  if (!candidateId || !getCandidateForOffice(office, candidateId, state)) {
+    return Response.json({ error: "Candidato inválido para este cargo/estado." }, { status: 400 });
+  }
+
+  const stateKey = voteScope(office, state);
   const result = await createVote({
     twitterId,
     twitterUser: session.user.username ?? null,
     twitterName: session.user.name ?? null,
+    office,
     candidateId,
     state,
+    stateKey,
   });
 
   if (!result.ok) {
     return Response.json(
       {
-        error: "Você já votou. Cada conta X tem direito a 1 voto.",
+        error:
+          office === "presidente"
+            ? "Você já votou para presidente. Cada conta X tem direito a 1 voto."
+            : "Você já votou para este cargo neste estado.",
         vote: {
+          office: result.existing.office,
           candidateId: result.existing.candidateId,
           state: result.existing.state,
+          stateKey: result.existing.stateKey,
           createdAt: result.existing.createdAt,
         },
       },
@@ -61,6 +81,6 @@ export async function POST(req: Request) {
     );
   }
 
-  const results = await getResults();
+  const results = await getResults(office);
   return Response.json({ ok: true, results });
 }

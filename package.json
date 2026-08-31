@@ -9,7 +9,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "node scripts/init-db.js && next start --hostname 0.0.0.0",
-    "lint": "eslint"
+    "lint": "eslint",
+    "import:candidates": "node scripts/import-tse-senators.js"
   },
   "dependencies": {
     "d3-geo": "^3.1.1",

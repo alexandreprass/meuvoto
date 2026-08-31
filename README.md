@@ -1,8 +1,8 @@
 # meuvoto.org
 
-Enquete independente para presidente do Brasil. A pessoa entra com a conta do **X**, informa o estado e vota **uma vez**. O mapa mostra o país por estado; no hover (ou toque no celular) aparecem votos e % daquele estado.
+Enquete independente para presidente, senador, deputado federal e deputado estadual/distrital. A pessoa entra com a conta do **X**, informa o estado e vota **uma vez por cargo**. O mapa mostra o país por estado; no hover (ou toque no celular) aparecem votos e % daquele estado.
 
-Senadores e deputados entram depois — a estrutura já reserva espaço.
+Os candidatos estaduais são separados por UF e os resultados aparecem no mapa e no painel lateral.
 
 ## Stack
 
@@ -104,6 +104,16 @@ Se o Web Service já existe:
 
 O `npm start` roda `scripts/init-db.js` e cria as tabelas `users`, `votes` e `messages`.
 
+
+## Importar candidatos
+
+A base de senadores fica em `data/senators.json`. Para atualizar a partir do CSV oficial do TSE, baixe e extraia `consulta_cand_2026.zip` do dataset Candidatos 2026 e rode:
+
+```bash
+npm run import:candidates -- caminho/consulta_cand_2026_BRASIL.csv
+```
+
+Fonte oficial: https://dadosabertos.tse.jus.br/dataset/candidatos-2026
 ## Aviso
 
 Isto **não** é urna oficial nem substitui o TSE. É uma enquete cívica: 1 voto por conta do X.

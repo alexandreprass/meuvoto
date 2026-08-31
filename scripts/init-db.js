@@ -35,12 +35,15 @@ async function main() {
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS votes (
-      twitter_id TEXT PRIMARY KEY,
+      twitter_id TEXT NOT NULL,
       twitter_user TEXT,
       twitter_name TEXT,
+      office TEXT NOT NULL DEFAULT 'presidente',
       candidate_id TEXT NOT NULL,
       state TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      state_key TEXT NOT NULL DEFAULT 'BR',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (twitter_id, office, state_key)
     );
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
@@ -53,6 +56,16 @@ async function main() {
     );
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
+
+  await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
+  await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
+  await pool.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);
+  await pool.query(`UPDATE votes SET state_key = CASE WHEN office = 'presidente' THEN 'BR' ELSE state END WHERE state_key IS NULL OR state_key = ''`);
+  await pool.query(`ALTER TABLE votes ALTER COLUMN state_key SET NOT NULL`);
+  await pool.query(`ALTER TABLE votes ALTER COLUMN state_key SET DEFAULT 'BR'`);
+  await pool.query(`ALTER TABLE votes DROP CONSTRAINT IF EXISTS votes_pkey`);
+  await pool.query(`ALTER TABLE votes ADD PRIMARY KEY (twitter_id, office, state_key)`);
+
   console.log("[init-db] Postgres pronto (users, votes, messages)");
   await pool.end();
 }

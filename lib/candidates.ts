@@ -1,12 +1,6 @@
-export type Candidate = {
-  id: string;
-  name: string;
-  fullName: string;
-  party: string;
-  number: string;
-  photo: string;
-  color: string;
-};
+import type { Candidate } from "./offices";
+
+export type { Candidate };
 
 export const CANDIDATES: Candidate[] = [
   {

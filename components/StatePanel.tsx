@@ -1,17 +1,20 @@
 "use client";
 
+import type { Candidate, OfficeId } from "@/lib/offices";
 import { UF_MAP, formatVotes } from "@/lib/states";
 import type { ResultsPayload } from "@/lib/types";
 import { CandidateBars } from "./CandidateBar";
 
 type Props = {
   uf: string;
+  office: OfficeId;
+  candidates: Candidate[];
   results: ResultsPayload;
   onClose?: () => void;
   mini?: boolean;
 };
 
-export function StatePanel({ uf, results, onClose, mini }: Props) {
+export function StatePanel({ uf, office, candidates, results, onClose, mini }: Props) {
   const state = UF_MAP[uf];
   const tally = results.byState[uf];
   if (!state || !tally) return null;
@@ -34,6 +37,7 @@ export function StatePanel({ uf, results, onClose, mini }: Props) {
             </p>
             <p className={mini ? "text-[9px] text-neutral-400" : "text-xs text-neutral-400"}>
               {formatVotes(tally.total)} {tally.total === 1 ? "voto" : "votos"}
+              {office === "senador" ? " para senador" : ""}
             </p>
           </div>
         </div>
@@ -47,7 +51,7 @@ export function StatePanel({ uf, results, onClose, mini }: Props) {
           </button>
         ) : null}
       </div>
-      <CandidateBars tallies={tally.candidates} compact={!mini} mini={mini} />
+      <CandidateBars candidates={candidates} tallies={tally.candidates} compact={!mini} mini={mini} />
     </div>
   );
 }

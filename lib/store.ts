@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
+import { voteScope, type OfficeId } from "./offices";
 
 export type UserRecord = {
   twitterId: string;
@@ -15,8 +16,10 @@ export type VoteRecord = {
   twitterId: string;
   twitterUser: string | null;
   twitterName: string | null;
+  office: OfficeId;
   candidateId: string;
   state: string;
+  stateKey: string;
   createdAt: string;
 };
 
@@ -79,12 +82,15 @@ async function ensureSchema(db: Pool) {
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
     CREATE TABLE IF NOT EXISTS votes (
-      twitter_id TEXT PRIMARY KEY,
+      twitter_id TEXT NOT NULL,
       twitter_user TEXT,
       twitter_name TEXT,
+      office TEXT NOT NULL DEFAULT 'presidente',
       candidate_id TEXT NOT NULL,
       state TEXT NOT NULL,
-      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      state_key TEXT NOT NULL DEFAULT 'BR',
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      PRIMARY KEY (twitter_id, office, state_key)
     );
     CREATE TABLE IF NOT EXISTS messages (
       id TEXT PRIMARY KEY,
@@ -97,11 +103,44 @@ async function ensureSchema(db: Pool) {
     );
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
+
+  await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
+  await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
+  await db.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);
+  await db.query(`UPDATE votes SET state_key = CASE WHEN office = 'presidente' THEN 'BR' ELSE state END WHERE state_key IS NULL OR state_key = ''`);
+  await db.query(`ALTER TABLE votes ALTER COLUMN state_key SET NOT NULL`);
+  await db.query(`ALTER TABLE votes ALTER COLUMN state_key SET DEFAULT 'BR'`);
+  await db.query(`ALTER TABLE votes DROP CONSTRAINT IF EXISTS votes_pkey`);
+  await db.query(`ALTER TABLE votes ADD PRIMARY KEY (twitter_id, office, state_key)`);
+
   schemaReady = true;
 }
 
 function nowIso() {
   return new Date().toISOString();
+}
+
+function normalizeVote(row: {
+  twitter_id: string;
+  twitter_user: string | null;
+  twitter_name: string | null;
+  office: string | null;
+  candidate_id: string;
+  state: string;
+  state_key: string | null;
+  created_at: Date;
+}): VoteRecord {
+  const office = row.office === "senador" ? "senador" : "presidente";
+  return {
+    twitterId: row.twitter_id,
+    twitterUser: row.twitter_user,
+    twitterName: row.twitter_name,
+    office,
+    candidateId: row.candidate_id,
+    state: row.state,
+    stateKey: row.state_key ?? voteScope(office, row.state),
+    createdAt: row.created_at.toISOString(),
+  };
 }
 
 export async function upsertUser(input: {
@@ -155,33 +194,31 @@ export async function upsertUser(input: {
   }
 }
 
-export async function listVotes(): Promise<VoteRecord[]> {
+export async function listVotes(office?: OfficeId): Promise<VoteRecord[]> {
   const db = getPool();
   if (db) {
     await ensureSchema(db);
+    const params = office ? [office] : [];
     const { rows } = await db.query<{
       twitter_id: string;
       twitter_user: string | null;
       twitter_name: string | null;
+      office: string | null;
       candidate_id: string;
       state: string;
+      state_key: string | null;
       created_at: Date;
     }>(
-      `SELECT twitter_id, twitter_user, twitter_name, candidate_id, state, created_at FROM votes`,
+      `SELECT twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at
+       FROM votes ${office ? "WHERE office = $1" : ""}`,
+      params,
     );
-    return rows.map((r) => ({
-      twitterId: r.twitter_id,
-      twitterUser: r.twitter_user,
-      twitterName: r.twitter_name,
-      candidateId: r.candidate_id,
-      state: r.state,
-      createdAt: r.created_at.toISOString(),
-    }));
+    return rows.map(normalizeVote);
   }
-  return memory.votes;
+  return office ? memory.votes.filter((v) => v.office === office) : memory.votes;
 }
 
-export async function findVote(twitterId: string): Promise<VoteRecord | null> {
+export async function listUserVotes(twitterId: string): Promise<VoteRecord[]> {
   const db = getPool();
   if (db) {
     await ensureSchema(db);
@@ -189,52 +226,84 @@ export async function findVote(twitterId: string): Promise<VoteRecord | null> {
       twitter_id: string;
       twitter_user: string | null;
       twitter_name: string | null;
+      office: string | null;
       candidate_id: string;
       state: string;
+      state_key: string | null;
       created_at: Date;
     }>(
-      `SELECT twitter_id, twitter_user, twitter_name, candidate_id, state, created_at
-       FROM votes WHERE twitter_id = $1`,
+      `SELECT twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at
+       FROM votes WHERE twitter_id = $1 ORDER BY created_at ASC`,
       [twitterId],
     );
-    const r = rows[0];
-    if (!r) return null;
-    return {
-      twitterId: r.twitter_id,
-      twitterUser: r.twitter_user,
-      twitterName: r.twitter_name,
-      candidateId: r.candidate_id,
-      state: r.state,
-      createdAt: r.created_at.toISOString(),
-    };
+    return rows.map(normalizeVote);
   }
-  return memory.votes.find((v) => v.twitterId === twitterId) ?? null;
+  return memory.votes.filter((v) => v.twitterId === twitterId);
+}
+
+export async function findVote(
+  twitterId: string,
+  office: OfficeId = "presidente",
+  stateKey = "BR",
+): Promise<VoteRecord | null> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{
+      twitter_id: string;
+      twitter_user: string | null;
+      twitter_name: string | null;
+      office: string | null;
+      candidate_id: string;
+      state: string;
+      state_key: string | null;
+      created_at: Date;
+    }>(
+      `SELECT twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at
+       FROM votes WHERE twitter_id = $1 AND office = $2 AND state_key = $3`,
+      [twitterId, office, stateKey],
+    );
+    const row = rows[0];
+    return row ? normalizeVote(row) : null;
+  }
+  return (
+    memory.votes.find(
+      (v) => v.twitterId === twitterId && v.office === office && v.stateKey === stateKey,
+    ) ?? null
+  );
 }
 
 export async function createVote(
-  vote: Omit<VoteRecord, "createdAt"> & { createdAt?: string },
+  vote: Omit<VoteRecord, "createdAt" | "stateKey"> & {
+    createdAt?: string;
+    stateKey?: string;
+  },
 ): Promise<{ ok: true } | { ok: false; existing: VoteRecord }> {
+  const stateKey = vote.stateKey ?? voteScope(vote.office, vote.state);
+
   await upsertUser({
     twitterId: vote.twitterId,
     username: vote.twitterUser,
     name: vote.twitterName,
   });
 
-  const existing = await findVote(vote.twitterId);
+  const existing = await findVote(vote.twitterId, vote.office, stateKey);
   if (existing) return { ok: false, existing };
 
   const db = getPool();
   if (db) {
     await ensureSchema(db);
     await db.query(
-      `INSERT INTO votes (twitter_id, twitter_user, twitter_name, candidate_id, state, created_at)
-       VALUES ($1,$2,$3,$4,$5,NOW())`,
+      `INSERT INTO votes (twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW())`,
       [
         vote.twitterId,
         vote.twitterUser,
         vote.twitterName,
+        vote.office,
         vote.candidateId,
         vote.state,
+        stateKey,
       ],
     );
     return { ok: true };
@@ -242,6 +311,7 @@ export async function createVote(
 
   memory.votes.push({
     ...vote,
+    stateKey,
     createdAt: vote.createdAt ?? nowIso(),
   });
   return { ok: true };

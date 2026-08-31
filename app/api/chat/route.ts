@@ -1,13 +1,15 @@
 import { auth } from "@/auth";
-import { getCandidate } from "@/lib/candidates";
-import { addMessage, findVote, listMessages } from "@/lib/store";
+import { getCandidateForOffice } from "@/lib/ballot";
+import { addMessage, listUserVotes, listMessages } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function serialize(messages: Awaited<ReturnType<typeof listMessages>>) {
   return messages.map((m) => {
-    const candidate = m.candidateId ? getCandidate(m.candidateId) : undefined;
+    const candidate = m.candidateId
+      ? getCandidateForOffice("presidente", m.candidateId)
+      : undefined;
     return {
       id: m.id,
       name: m.name || m.username || "Usuário",
@@ -35,7 +37,8 @@ export async function POST(req: Request) {
     );
   }
 
-  const vote = await findVote(twitterId);
+  const votes = await listUserVotes(twitterId);
+  const vote = votes.find((item) => item.office === "presidente") ?? votes[0];
   if (!vote) {
     return Response.json(
       { error: "Vote primeiro para dar sua opinião" },

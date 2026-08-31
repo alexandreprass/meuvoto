@@ -1,18 +1,17 @@
-import { CANDIDATES } from "./candidates";
 import { STATES } from "./states";
-import type { CandidateTally, ResultsPayload } from "./types";
+import type { ResultsPayload } from "./types";
+import type { OfficeId } from "./offices";
 
-function emptyTallies(): CandidateTally[] {
-  return CANDIDATES.map((c) => ({ id: c.id, votes: 0, percent: 0 }));
-}
-
-export function emptyResults(): ResultsPayload {
-  const empty = emptyTallies();
+export function emptyResults(office: OfficeId = "presidente"): ResultsPayload {
   return {
+    office,
     total: 0,
-    national: empty,
+    national: [],
     byState: Object.fromEntries(
-      STATES.map((s) => [s.uf, { total: 0, candidates: empty }]),
+      STATES.map((s) => [
+        s.uf,
+        { total: 0, candidates: [] },
+      ]),
     ),
   };
 }

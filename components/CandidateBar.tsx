@@ -1,26 +1,37 @@
 "use client";
 
-import { CANDIDATES, getCandidate } from "@/lib/candidates";
+import type { Candidate } from "@/lib/offices";
 import { formatPercent, formatVotes } from "@/lib/states";
 import type { CandidateTally } from "@/lib/types";
 
 type Props = {
+  candidates: Candidate[];
   tallies: CandidateTally[];
   compact?: boolean;
   mini?: boolean;
 };
 
-export function CandidateBars({ tallies, compact, mini }: Props) {
+export function CandidateBars({ candidates, tallies, compact, mini }: Props) {
   const max = Math.max(1, ...tallies.map((t) => t.percent));
-  const ordered = CANDIDATES.map((c) => tallies.find((t) => t.id === c.id)).filter(
-    Boolean,
-  ) as CandidateTally[];
-  const ranked = [...ordered].sort((a, b) => b.votes - a.votes);
+  const ordered = candidates.map((candidate) =>
+    tallies.find((tally) => tally.id === candidate.id) ?? { id: candidate.id, votes: 0, percent: 0 },
+  );
+  const ranked = [...ordered]
+    .sort((a, b) => b.votes - a.votes)
+    .slice(0, mini ? 5 : compact ? 12 : 40);
+
+  if (candidates.length === 0) {
+    return (
+      <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
+        Nenhum candidato carregado para este estado.
+      </p>
+    );
+  }
 
   return (
     <ul className={`flex flex-col ${mini ? "gap-1" : compact ? "gap-2" : "gap-3"}`}>
       {ranked.map((t) => {
-        const c = getCandidate(t.id);
+        const c = candidates.find((candidate) => candidate.id === t.id);
         if (!c) return null;
         const width = max === 0 ? 0 : (t.percent / max) * 100;
         return (
@@ -29,6 +40,10 @@ export function CandidateBars({ tallies, compact, mini }: Props) {
             <img
               src={c.photo}
               alt={c.name}
+              onError={(event) => {
+                event.currentTarget.onerror = null;
+                event.currentTarget.src = c.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
+              }}
               className={`rounded-full object-cover object-top ring-2 ring-white shadow-sm ${
                 mini ? "h-5 w-5" : compact ? "h-9 w-9" : "h-12 w-12"
               }`}

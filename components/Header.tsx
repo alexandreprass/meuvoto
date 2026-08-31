@@ -7,8 +7,9 @@ import type { MePayload } from "@/lib/types";
 
 const OFFICES = [
   { id: "presidente", label: "Presidente", soon: false },
-  { id: "senadores", label: "Senadores", soon: true },
-  { id: "deputados", label: "Deputados", soon: true },
+  { id: "senador", label: "Senadores", soon: false },
+  { id: "deputado_federal", label: "Dep. Federal", soon: false },
+  { id: "deputado_estadual", label: "Dep. Estadual", soon: false },
 ] as const;
 
 type Props = {

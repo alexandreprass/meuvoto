@@ -1,3 +1,5 @@
+import type { OfficeId } from "./offices";
+
 export type CandidateTally = {
   id: string;
   votes: number;
@@ -10,14 +12,17 @@ export type StateTally = {
 };
 
 export type ResultsPayload = {
+  office: OfficeId;
   total: number;
   national: CandidateTally[];
   byState: Record<string, StateTally>;
 };
 
 export type MyVote = {
+  office: OfficeId;
   candidateId: string;
   state: string;
+  stateKey: string;
   createdAt: string;
 };
 
@@ -28,4 +33,5 @@ export type MePayload = {
   name?: string;
   image?: string;
   vote: MyVote | null;
+  votes: MyVote[];
 };
