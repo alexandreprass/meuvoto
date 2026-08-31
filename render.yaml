@@ -1,8 +1,16 @@
+databases:
+  - name: meuvoto-db
+    plan: free
+    databaseName: meuvoto
+    user: meuvoto
+    region: oregon
+
 services:
   - type: web
     name: meuvoto
     runtime: node
     plan: free
+    region: oregon
     buildCommand: npm ci && npm run build
     startCommand: npm start
     healthCheckPath: /api/results
@@ -20,4 +28,6 @@ services:
       - key: AUTH_TWITTER_SECRET
         sync: false
       - key: DATABASE_URL
-        sync: false
+        fromDatabase:
+          name: meuvoto-db
+          property: connectionString

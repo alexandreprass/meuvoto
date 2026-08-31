@@ -84,9 +84,15 @@ No app do X, acrescente o callback:
 - `https://SEU-SERVICO.onrender.com/api/auth/callback/twitter`
 - `https://meuvoto.org/api/auth/callback/twitter`
 
-O disco do Render Free apaga arquivos a cada deploy. Para votos, login e chat persistirem, crie um Postgres (Neon gratuito ou Postgres do Render) e cole a connection string em `DATABASE_URL`. Sem isso, os votos zeram a cada nova versão.
+O disco do Render Free apaga arquivos a cada deploy. Use o **Postgres do Render**:
 
-No Neon: New Project → copie a URI (`postgresql://...`) → Render Environment → `DATABASE_URL`.
+1. Dashboard → **New → Postgres**
+2. Nome: `meuvoto-db` · mesma **region** do Web Service
+3. Quando ficar Available, abra o banco → **Connections** → copie **Internal Database URL**
+4. No Web Service `meuvoto` → **Environment** → `DATABASE_URL` = essa URL
+5. **Manual Deploy** no site
+
+Sem `DATABASE_URL`, votos e chat zeram a cada versão.
 
 ## Aviso
 
