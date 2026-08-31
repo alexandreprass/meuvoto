@@ -10,20 +10,26 @@ import { XIcon } from "./XIcon";
 
 type Props = {
   open: boolean;
+  summary: boolean;
   office: OfficeId;
   selectedState: string;
   candidates: Candidate[];
   me: MePayload | null;
+  voteCandidates: Partial<Record<OfficeId, Candidate>>;
+  onSelectOffice: (office: OfficeId) => void;
   onClose: () => void;
   onVoted: () => void;
 };
 
 export function VoteModal({
   open,
+  summary,
   office,
   selectedState,
   candidates,
   me,
+  voteCandidates,
+  onSelectOffice,
   onClose,
   onVoted,
 }: Props) {
@@ -53,6 +59,78 @@ export function VoteModal({
   );
 
   if (!open) return null;
+
+  if (summary && me?.loggedIn) {
+    const offices: OfficeId[] = ["presidente", "senador", "deputado_federal", "deputado_estadual"];
+    return (
+      <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
+        <button type="button" className="absolute inset-0 bg-neutral-950/40" aria-label="Fechar" onClick={onClose} />
+        <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
+          <div className="mb-5 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Sua participação</p>
+              <h2 className="text-xl font-semibold text-neutral-950">Seus votos</h2>
+              <p className="mt-1 text-sm text-neutral-500">Um voto por cargo na enquete.</p>
+            </div>
+            <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-100 hover:text-neutral-700">×</button>
+          </div>
+          <div className="divide-y divide-neutral-100 border-y border-neutral-100">
+            {offices.map((targetOffice) => {
+              const targetVote = targetOffice === "presidente"
+                ? me.votes.find((vote) => vote.office === targetOffice)
+                : me.votes.find((vote) => vote.office === targetOffice && vote.stateKey === selectedState);
+              const candidate = voteCandidates[targetOffice];
+              return (
+                <div key={targetOffice} className="flex min-h-24 items-center gap-3 py-4">
+                  {targetVote ? (
+                    <>
+                      {candidate ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={candidate.photo}
+                          alt=""
+                          onError={(event) => {
+                            event.currentTarget.onerror = null;
+                            event.currentTarget.src = candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
+                          }}
+                          className="h-14 w-14 shrink-0 rounded-full object-cover object-top"
+                        />
+                      ) : (
+                        <span className="h-14 w-14 shrink-0 animate-pulse rounded-full bg-neutral-100" />
+                      )}
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{OFFICES[targetOffice].label}</p>
+                        <p className="truncate font-semibold text-neutral-950">{candidate?.name ?? "Carregando candidato..."}</p>
+                        <p className="text-xs text-neutral-500">
+                          {candidate ? candidate.party + " · " + candidate.number : ""}
+                          {targetOffice !== "presidente" ? " · " + targetVote.state : ""}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-emerald-600">Votado</span>
+                    </>
+                  ) : (
+                    <>
+                      <div className="min-w-0 flex-1">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{OFFICES[targetOffice].label}</p>
+                        <p className="mt-1 text-sm text-neutral-500">Você ainda não votou neste cargo.</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => onSelectOffice(targetOffice)}
+                        className="shrink-0 rounded-full bg-neutral-950 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800"
+                      >
+                        Votar agora
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   async function submit() {
     setError(null);

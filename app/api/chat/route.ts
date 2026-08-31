@@ -38,10 +38,10 @@ export async function POST(req: Request) {
   }
 
   const votes = await listUserVotes(twitterId);
-  const vote = votes.find((item) => item.office === "presidente") ?? votes[0];
+  const vote = votes.find((item) => item.office === "presidente");
   if (!vote) {
     return Response.json(
-      { error: "Vote primeiro para dar sua opinião" },
+      { error: "Vote para presidente primeiro para dar sua opinião" },
       { status: 403 },
     );
   }

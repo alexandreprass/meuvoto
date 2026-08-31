@@ -22,6 +22,7 @@ export function HomeClient() {
   const [tip, setTip] = useState<Tip | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [voteOpen, setVoteOpen] = useState(false);
+  const [voteSummary, setVoteSummary] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
@@ -65,6 +66,14 @@ export function HomeClient() {
     const timeout = window.setTimeout(() => void loadCandidates(office, uf), 0);
     return () => window.clearTimeout(timeout);
   }, [loadCandidates, office, pinnedUf, tip?.uf]);
+
+  useEffect(() => {
+    if (!voteSummary) return;
+    const timeout = window.setTimeout(() => {
+      for (const vote of me?.votes ?? []) void loadCandidates(vote.office, vote.state);
+    }, 0);
+    return () => window.clearTimeout(timeout);
+  }, [loadCandidates, me?.votes, voteSummary]);
 
   useEffect(() => {
     const node = mapRef.current;
@@ -119,7 +128,8 @@ export function HomeClient() {
         me={me}
         office={office}
         onOffice={handleOffice}
-        onVote={() => setVoteOpen(true)}
+        onVote={() => { setVoteSummary(false); setVoteOpen(true); }}
+        onVotes={() => { setVoteSummary(true); setVoteOpen(true); }}
         onOpinion={() => setChatOpen(true)}
       />
 
@@ -258,10 +268,20 @@ export function HomeClient() {
       {voteOpen ? (
         <VoteModal
           open={voteOpen}
+          summary={voteSummary}
           office={office}
           selectedState={selectedState}
           candidates={visibleCandidates}
           me={me}
+          voteCandidates={Object.fromEntries((me?.votes ?? []).map((vote) => {
+            const key = vote.office + ":" + (vote.office === "presidente" ? "BR" : vote.state);
+            return [vote.office, candidateCache[key]?.find((candidate) => candidate.id === vote.candidateId)];
+          }))}
+          onSelectOffice={(targetOffice) => {
+            setOffice(targetOffice);
+            setVoteSummary(false);
+            void loadCandidates(targetOffice, selectedState);
+          }}
           onClose={() => setVoteOpen(false)}
           onVoted={async () => {
             await load();
@@ -276,6 +296,8 @@ export function HomeClient() {
         onClose={() => setChatOpen(false)}
         onVote={() => {
           setChatOpen(false);
+          setOffice("presidente");
+          setVoteSummary(false);
           setVoteOpen(true);
         }}
       />

@@ -62,7 +62,7 @@ export function OpinionChat({ open, me, onClose, onVote }: Props) {
       return;
     }
     if (!voted) {
-      setError("Vote primeiro para dar sua opinião");
+      setError("Vote para presidente primeiro para dar sua opinião");
       return;
     }
     const body = text.trim();
@@ -142,7 +142,7 @@ export function OpinionChat({ open, me, onClose, onVote }: Props) {
           {!voted ? (
             <div className="rounded-2xl bg-amber-50 px-4 py-3 text-center">
               <p className="text-sm font-medium text-amber-950">
-                Vote primeiro para dar sua opinião
+                Vote para presidente primeiro para dar sua opinião
               </p>
               <button
                 type="button"

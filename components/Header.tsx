@@ -17,10 +17,11 @@ type Props = {
   office: string;
   onOffice: (id: string) => void;
   onVote: () => void;
+  onVotes: () => void;
   onOpinion: () => void;
 };
 
-export function Header({ me, office, onOffice, onVote, onOpinion }: Props) {
+export function Header({ me, office, onOffice, onVote, onVotes, onOpinion }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
       <button
@@ -95,10 +96,10 @@ export function Header({ me, office, onOffice, onVote, onOpinion }: Props) {
               </div>
               <button
                 type="button"
-                onClick={onVote}
+                onClick={me.votes.length > 0 ? onVotes : onVote}
                 className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
               >
-                {me.vote ? "Seu voto" : "Votar"}
+                {me.votes.length > 0 ? "Seus votos" : "Votar"}
               </button>
               <button
                 type="button"
