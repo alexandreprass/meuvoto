@@ -16,7 +16,7 @@ type Props = {
 };
 
 const WIDTH = 640;
-const HEIGHT = 640;
+const HEIGHT = 680;
 
 export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
   const [geo, setGeo] = useState<BrazilCollection | null>(null);
@@ -36,8 +36,8 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
       };
     const projection = geoMercator().fitExtent(
       [
-        [16, 8],
-        [WIDTH - 16, HEIGHT - 8],
+        [12, 12],
+        [WIDTH - 12, HEIGHT - 12],
       ],
       geo,
     );
@@ -53,14 +53,23 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
     );
   }
 
+  const ordered = [...features].sort((a, b) => {
+    const ua = IBGE_TO_UF[String(a.properties?.codarea ?? "")];
+    const ub = IBGE_TO_UF[String(b.properties?.codarea ?? "")];
+    if (ua === activeUf) return 1;
+    if (ub === activeUf) return -1;
+    return 0;
+  });
+
   return (
     <svg
       viewBox={`0 0 ${WIDTH} ${HEIGHT}`}
+      preserveAspectRatio="xMidYMid meet"
       className="h-auto w-full select-none"
       role="img"
       aria-label="Mapa do Brasil por estados"
     >
-      {features.map((feature, i) => {
+      {ordered.map((feature, i) => {
         const ibge = String(feature.properties?.codarea ?? "");
         const uf = IBGE_TO_UF[ibge];
         const state = uf ? UF_MAP[uf] : undefined;
@@ -73,9 +82,10 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
             key={`${state.uf}-${i}`}
             d={d}
             fill={state.color}
-            fillOpacity={active ? 1 : 0.82}
+            fillOpacity={active ? 1 : 0.9}
+            fillRule="evenodd"
             stroke={active ? "#111111" : "#ffffff"}
-            strokeWidth={active ? 2.4 : 1.1}
+            strokeWidth={active ? 2.2 : 1}
             strokeLinejoin="round"
             className="cursor-pointer transition-[filter,stroke-width,fill-opacity] duration-150"
             style={{
