@@ -14,7 +14,9 @@ type StoreFile = {
   votes: VoteRecord[];
 };
 
-const DATA_PATH = join(process.cwd(), "data", "votes.json");
+const DATA_PATH =
+  process.env.VOTES_PATH ??
+  join(process.env.DATA_DIR ?? join(process.cwd(), "data"), "votes.json");
 
 let queue: Promise<unknown> = Promise.resolve();
 

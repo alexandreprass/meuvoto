@@ -1,0 +1,17 @@
+services:
+  - type: web
+    name: meuvoto
+    runtime: node
+    plan: free
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
+    healthCheckPath: /api/results
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: AUTH_SECRET
+        generateValue: true
+      - key: AUTH_TWITTER_ID
+        sync: false
+      - key: AUTH_TWITTER_SECRET
+        sync: false

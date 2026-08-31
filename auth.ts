@@ -1,6 +1,10 @@
 import NextAuth from "next-auth";
 import Twitter from "next-auth/providers/twitter";
 
+if (!process.env.AUTH_URL && process.env.RENDER_EXTERNAL_URL) {
+  process.env.AUTH_URL = process.env.RENDER_EXTERNAL_URL;
+}
+
 type TwitterProfileData = {
   data?: {
     id?: string;

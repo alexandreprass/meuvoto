@@ -52,11 +52,38 @@ Abra [http://localhost:3000](http://localhost:3000). Sem as chaves do X, o mapa 
 
 Escopos usados pelo Auth.js: `users.read`, `tweet.read`, `offline.access`.
 
-## Produção
+## Deploy no Render
 
-O arquivo `data/votes.json` serve para VPS com disco persistente. No Vercel o disco é efêmero — aí vale migrar os votos para Postgres.
+Crie um **Web Service** (não Static Site) apontando para este repo.
 
-Defina `AUTH_URL=https://meuvoto.org`.
+| Campo | Valor |
+| --- | --- |
+| Language | Node |
+| Branch | `main` |
+| Build Command | `npm ci && npm run build` |
+| Start Command | `npm start` |
+
+Variáveis de ambiente:
+
+```
+NODE_VERSION=22
+AUTH_SECRET=     (Generate no painel, ou cole um secret)
+AUTH_TWITTER_ID=
+AUTH_TWITTER_SECRET=
+```
+
+`AUTH_URL` é preenchido sozinho com a URL do Render. Quando o domínio for `meuvoto.org`, defina:
+
+```
+AUTH_URL=https://meuvoto.org
+```
+
+No app do X, acrescente o callback:
+
+- `https://SEU-SERVICO.onrender.com/api/auth/callback/twitter`
+- `https://meuvoto.org/api/auth/callback/twitter`
+
+O plano Free apaga `data/votes.json` a cada deploy/reinício. Para guardar votos, no plano pago adicione um Disk com mount path `/opt/render/project/src/data`.
 
 ## Aviso
 
