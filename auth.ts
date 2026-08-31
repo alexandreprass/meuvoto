@@ -1,6 +1,6 @@
 import NextAuth from "next-auth";
 import Twitter from "next-auth/providers/twitter";
-import { upsertUser } from "@/lib/store";
+import { isUserBlocked, upsertUser } from "@/lib/store";
 
 if (!process.env.AUTH_URL) {
   process.env.AUTH_URL =
@@ -31,11 +31,17 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     error: "/",
   },
   callbacks: {
+    async signIn({ profile }) {
+      const p = profile as TwitterProfileData | undefined;
+      const twitterId = String(p?.data?.id ?? p?.id ?? "");
+      return twitterId ? !(await isUserBlocked(twitterId)) : true;
+    },
     async jwt({ token, profile, user }) {
       if (profile) {
         const p = profile as TwitterProfileData;
         const twitterId = String(p.data?.id ?? p.id ?? "");
         token.twitterId = twitterId;
+        token.subjectTwitterId = twitterId;
         token.username = p.data?.username ?? p.username;
         if (twitterId) {
           await upsertUser({
@@ -47,6 +53,8 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
           });
         }
       }
+      const subjectTwitterId = String(token.subjectTwitterId ?? token.twitterId ?? "");
+      if (subjectTwitterId) token.twitterId = (await isUserBlocked(subjectTwitterId)) ? "" : subjectTwitterId;
       return token;
     },
     async session({ session, token }) {

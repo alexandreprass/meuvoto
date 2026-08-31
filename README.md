@@ -71,6 +71,7 @@ NODE_VERSION=22
 AUTH_SECRET=     (Generate no painel)
 AUTH_TWITTER_ID=
 AUTH_TWITTER_SECRET=
+SENHA_ADM=       (senha forte para acessar /adm)
 DATABASE_URL=    (Postgres — obrigatório para votos e chat não zerarem)
 ```
 
@@ -119,3 +120,8 @@ Fonte oficial: https://dadosabertos.tse.jus.br/dataset/candidatos-2026
 Isto **não** é urna oficial nem substitui o TSE. É uma enquete cívica: 1 voto por conta do X.
 
 Fotos: Wikimedia Commons (veja `public/photos-attribution.txt`).
+
+
+## Administração
+
+Defina `SENHA_ADM` no ambiente do Render e acesse `/adm`. O painel permite consultar cadastros e votos, excluir votos selecionados, bloquear/desbloquear usuários e excluir cadastros com seus votos e mensagens. A senha não é enviada ao cliente nem salva no banco.

@@ -32,7 +32,8 @@ async function main() {
       email TEXT,
       image TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS votes (
       twitter_id TEXT NOT NULL,
@@ -57,6 +58,7 @@ async function main() {
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
 
+  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
   await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
   await pool.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);

@@ -10,6 +10,7 @@ export type UserRecord = {
   image: string | null;
   createdAt: string;
   lastLoginAt: string;
+  blockedAt: string | null;
 };
 
 export type VoteRecord = {
@@ -79,7 +80,8 @@ async function ensureSchema(db: Pool) {
       email TEXT,
       image TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      blocked_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS votes (
       twitter_id TEXT NOT NULL,
@@ -104,6 +106,7 @@ async function ensureSchema(db: Pool) {
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
 
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
   await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
   await db.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);
@@ -130,7 +133,10 @@ function normalizeVote(row: {
   state_key: string | null;
   created_at: Date;
 }): VoteRecord {
-  const office = row.office === "senador" ? "senador" : "presidente";
+  const office: OfficeId =
+    row.office === "senador" || row.office === "deputado_federal" || row.office === "deputado_estadual"
+      ? row.office
+      : "presidente";
   return {
     twitterId: row.twitter_id,
     twitterUser: row.twitter_user,
@@ -190,6 +196,7 @@ export async function upsertUser(input: {
       image: input.image ?? null,
       createdAt: ts,
       lastLoginAt: ts,
+      blockedAt: null,
     });
   }
 }
@@ -394,4 +401,117 @@ export async function addMessage(input: {
   memory.messages.push(message);
   memory.messages = memory.messages.slice(-MAX_MESSAGES);
   return message;
+}
+
+export type AdminUserRecord = UserRecord & { votes: VoteRecord[] };
+
+export async function isUserBlocked(twitterId: string): Promise<boolean> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{ blocked_at: Date | null }>(
+      "SELECT blocked_at FROM users WHERE twitter_id = $1",
+      [twitterId],
+    );
+    return Boolean(rows[0]?.blocked_at);
+  }
+  return Boolean(memory.users.find((user) => user.twitterId === twitterId)?.blockedAt);
+}
+
+export async function listAdminUsers(): Promise<AdminUserRecord[]> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const [{ rows: users }, votes] = await Promise.all([
+      db.query<{
+        twitter_id: string; username: string | null; name: string | null; email: string | null;
+        image: string | null; created_at: Date; last_login_at: Date; blocked_at: Date | null;
+      }>("SELECT twitter_id, username, name, email, image, created_at, last_login_at, blocked_at FROM users ORDER BY last_login_at DESC"),
+      listVotes(),
+    ]);
+    return users.map((user) => ({
+      twitterId: user.twitter_id,
+      username: user.username,
+      name: user.name,
+      email: user.email,
+      image: user.image,
+      createdAt: user.created_at.toISOString(),
+      lastLoginAt: user.last_login_at.toISOString(),
+      blockedAt: user.blocked_at?.toISOString() ?? null,
+      votes: votes.filter((vote) => vote.twitterId === user.twitter_id),
+    }));
+  }
+  return memory.users.map((user) => ({
+    ...user,
+    votes: memory.votes.filter((vote) => vote.twitterId === user.twitterId),
+  }));
+}
+
+export async function deleteAdminVotes(keys: Array<{ twitterId: string; office: OfficeId; stateKey: string }>) {
+  if (keys.length === 0) return;
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      for (const key of keys) {
+        await client.query(
+          "DELETE FROM votes WHERE twitter_id = $1 AND office = $2 AND state_key = $3",
+          [key.twitterId, key.office, key.stateKey],
+        );
+      }
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+  memory.votes = memory.votes.filter(
+    (vote) => !keys.some((key) => key.twitterId === vote.twitterId && key.office === vote.office && key.stateKey === vote.stateKey),
+  );
+}
+
+export async function setUsersBlocked(twitterIds: string[], blocked: boolean) {
+  if (twitterIds.length === 0) return;
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    await db.query(
+      "UPDATE users SET blocked_at = CASE WHEN $2 THEN NOW() ELSE NULL END WHERE twitter_id = ANY($1::text[])",
+      [twitterIds, blocked],
+    );
+    return;
+  }
+  for (const user of memory.users) {
+    if (twitterIds.includes(user.twitterId)) user.blockedAt = blocked ? nowIso() : null;
+  }
+}
+
+export async function deleteAdminUsers(twitterIds: string[]) {
+  if (twitterIds.length === 0) return;
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      await client.query("DELETE FROM messages WHERE twitter_id = ANY($1::text[])", [twitterIds]);
+      await client.query("DELETE FROM votes WHERE twitter_id = ANY($1::text[])", [twitterIds]);
+      await client.query("DELETE FROM users WHERE twitter_id = ANY($1::text[])", [twitterIds]);
+      await client.query("COMMIT");
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+    return;
+  }
+  memory.messages = memory.messages.filter((message) => !twitterIds.includes(message.twitterId));
+  memory.votes = memory.votes.filter((vote) => !twitterIds.includes(vote.twitterId));
+  memory.users = memory.users.filter((user) => !twitterIds.includes(user.twitterId));
 }
