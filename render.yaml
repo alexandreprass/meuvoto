@@ -11,6 +11,10 @@ services:
         value: "22"
       - key: AUTH_SECRET
         generateValue: true
+      - key: AUTH_URL
+        value: https://meuvoto.onrender.com
+      - key: AUTH_TRUST_HOST
+        value: "true"
       - key: AUTH_TWITTER_ID
         sync: false
       - key: AUTH_TWITTER_SECRET

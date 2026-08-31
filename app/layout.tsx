@@ -12,11 +12,11 @@ export const metadata: Metadata = {
   title: "meuvoto.org — Enquete para presidente",
   description:
     "Vote para presidente com sua conta do X. Um voto por pessoa. Mapa do Brasil com resultados por estado.",
-  metadataBase: new URL("https://meuvoto.org"),
+  metadataBase: new URL("https://meuvoto.onrender.com"),
   openGraph: {
     title: "meuvoto.org",
     description: "Enquete independente para presidente. 1 voto por conta do X.",
-    url: "https://meuvoto.org",
+    url: "https://meuvoto.onrender.com",
     siteName: "meuvoto.org",
     locale: "pt_BR",
     type: "website",
