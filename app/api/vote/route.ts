@@ -3,7 +3,7 @@ import { getCandidateForOffice } from "@/lib/ballot";
 import { getResults, voteScope } from "@/lib/results";
 import type { OfficeId } from "@/lib/offices";
 import { UF_MAP } from "@/lib/states";
-import { createVote } from "@/lib/store";
+import { createVote, getUserState } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,15 +32,21 @@ export async function POST(req: Request) {
     return Response.json({ error: "Requisição inválida." }, { status: 400 });
   }
 
+  const savedState = await getUserState(twitterId);
+  if (!savedState) {
+    return Response.json({ error: "Escolha seu estado antes de votar." }, { status: 428 });
+  }
+
   const office = parseOffice(body.office);
   const candidateId = body.candidateId?.trim();
-  const state = body.state?.trim().toUpperCase();
+  const requestedState = body.state?.trim().toUpperCase();
+  const state = savedState;
 
   if (!office) {
     return Response.json({ error: "Cargo inválido." }, { status: 400 });
   }
 
-  if (!state || !UF_MAP[state]) {
+  if (!state || !UF_MAP[state] || (requestedState && requestedState !== state)) {
     return Response.json(
       { error: "Informe o estado em que você vota." },
       { status: 400 },

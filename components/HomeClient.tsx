@@ -8,6 +8,8 @@ import { CandidateBars } from "./CandidateBar";
 import { StatePanel } from "./StatePanel";
 import { VoteModal } from "./VoteModal";
 import { OpinionChat } from "./OpinionChat";
+import { StateGateModal } from "./StateGateModal";
+import { ProfileModal } from "./ProfileModal";
 import { emptyResults } from "@/lib/results-client";
 import { formatVotes, STATES, UF_MAP } from "@/lib/states";
 import type { MePayload, ResultsPayload } from "@/lib/types";
@@ -23,6 +25,9 @@ export function HomeClient() {
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [voteOpen, setVoteOpen] = useState(false);
   const [voteSummary, setVoteSummary] = useState(false);
+  const [stateGateOpen, setStateGateOpen] = useState(false);
+  const [profileOpen, setProfileOpen] = useState(false);
+  const [pendingVoteSummary, setPendingVoteSummary] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
@@ -36,6 +41,7 @@ export function HomeClient() {
     ]);
     setResults(r);
     setMe(m);
+    if (m.state && UF_MAP[m.state]) setSelectedState(m.state);
   }, [office]);
 
   useEffect(() => {
@@ -108,6 +114,18 @@ export function HomeClient() {
     setTip({ uf, x: pos?.x ?? 0, y: pos?.y ?? 0 });
   }
 
+  function requestVote(summary = false) {
+    if (me?.loggedIn && !me.state) {
+      setPendingVoteSummary(summary);
+      setStateGateOpen(true);
+      return;
+    }
+    const voteState = me?.state ?? selectedState;
+    void loadCandidates(office, voteState);
+    setVoteSummary(summary);
+    setVoteOpen(true);
+  }
+
   function handleOffice(id: string) {
     if (!(id in OFFICES)) return;
     setOffice(id as OfficeId);
@@ -128,8 +146,9 @@ export function HomeClient() {
         me={me}
         office={office}
         onOffice={handleOffice}
-        onVote={() => { setVoteSummary(false); setVoteOpen(true); }}
-        onVotes={() => { setVoteSummary(true); setVoteOpen(true); }}
+        onVote={() => requestVote(false)}
+        onVotes={() => requestVote(true)}
+        onProfile={() => setProfileOpen(true)}
         onOpinion={() => setChatOpen(true)}
       />
 
@@ -249,7 +268,7 @@ export function HomeClient() {
 
             <button
               type="button"
-              onClick={() => setVoteOpen(true)}
+              onClick={() => requestVote(false)}
               className="mt-6 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800"
             >
               {currentVote ? "Você já votou" : "Votar agora"}
@@ -270,8 +289,8 @@ export function HomeClient() {
           open={voteOpen}
           summary={voteSummary}
           office={office}
-          selectedState={selectedState}
-          candidates={visibleCandidates}
+          selectedState={me?.state ?? selectedState}
+          candidates={candidateCache[office + ":" + (office === "presidente" ? "BR" : me?.state ?? selectedState)] ?? []}
           me={me}
           voteCandidates={Object.fromEntries((me?.votes ?? []).map((vote) => {
             const key = vote.office + ":" + (vote.office === "presidente" ? "BR" : vote.state);
@@ -280,7 +299,7 @@ export function HomeClient() {
           onSelectOffice={(targetOffice) => {
             setOffice(targetOffice);
             setVoteSummary(false);
-            void loadCandidates(targetOffice, selectedState);
+            void loadCandidates(targetOffice, me?.state ?? selectedState);
           }}
           onClose={() => setVoteOpen(false)}
           onVoted={async () => {
@@ -290,6 +309,29 @@ export function HomeClient() {
         />
       ) : null}
 
+      <ProfileModal
+        open={profileOpen}
+        me={me}
+        onClose={() => setProfileOpen(false)}
+        onDeleted={async () => {
+          await load();
+          setProfileOpen(false);
+        }}
+      />
+
+      <StateGateModal
+        open={stateGateOpen}
+        onClose={() => setStateGateOpen(false)}
+        onSaved={(state) => {
+          setSelectedState(state);
+          setMe((current) => current ? { ...current, state } : current);
+          setStateGateOpen(false);
+          void loadCandidates(office, state);
+          setVoteSummary(pendingVoteSummary);
+          setVoteOpen(true);
+        }}
+      />
+
       <OpinionChat
         open={chatOpen}
         me={me}
@@ -297,8 +339,13 @@ export function HomeClient() {
         onVote={() => {
           setChatOpen(false);
           setOffice("presidente");
-          setVoteSummary(false);
-          setVoteOpen(true);
+          if (me?.loggedIn && !me.state) {
+            setPendingVoteSummary(false);
+            setStateGateOpen(true);
+          } else {
+            setVoteSummary(false);
+            setVoteOpen(true);
+          }
         }}
       />
     </div>

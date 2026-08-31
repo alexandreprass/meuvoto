@@ -1,5 +1,5 @@
 import { auth } from "@/auth";
-import { listUserVotes } from "@/lib/store";
+import { canUserDeleteVotes, getUserState, listUserVotes } from "@/lib/store";
 import type { MePayload } from "@/lib/types";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +14,11 @@ export async function GET() {
     return Response.json(payload);
   }
 
-  const votes = await listUserVotes(twitterId);
+  const [votes, state, canDeleteVotes] = await Promise.all([
+    listUserVotes(twitterId),
+    getUserState(twitterId),
+    canUserDeleteVotes(twitterId),
+  ]);
   const serializedVotes = votes.map((vote) => ({
     office: vote.office,
     candidateId: vote.candidateId,
@@ -30,6 +34,8 @@ export async function GET() {
     username: session.user.username,
     name: session.user.name ?? undefined,
     image: session.user.image ?? undefined,
+    state,
+    canDeleteVotes,
     vote: presidentVote,
     votes: serializedVotes,
   };

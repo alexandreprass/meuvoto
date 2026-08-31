@@ -251,7 +251,7 @@ export function VoteModal({
                   setState(e.target.value);
                   setCandidateId("");
                 }}
-                disabled={stateOffice}
+                disabled
                 className="w-full rounded-xl disabled:bg-neutral-100 border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-950 outline-none focus:border-neutral-400"
               >
                 <option value="">Selecione o estado</option>

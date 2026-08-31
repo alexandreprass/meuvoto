@@ -32,6 +32,8 @@ export type MePayload = {
   username?: string;
   name?: string;
   image?: string;
+  state?: string | null;
+  canDeleteVotes?: boolean;
   vote: MyVote | null;
   votes: MyVote[];
 };

@@ -11,6 +11,7 @@ export type UserRecord = {
   createdAt: string;
   lastLoginAt: string;
   blockedAt: string | null;
+  state: string | null;
 };
 
 export type VoteRecord = {
@@ -81,7 +82,9 @@ async function ensureSchema(db: Pool) {
       image TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-      blocked_at TIMESTAMPTZ
+      blocked_at TIMESTAMPTZ,
+      state TEXT,
+      votes_deleted_at TIMESTAMPTZ
     );
     CREATE TABLE IF NOT EXISTS votes (
       twitter_id TEXT NOT NULL,
@@ -107,6 +110,8 @@ async function ensureSchema(db: Pool) {
   `);
 
   await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT`);
+  await db.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS votes_deleted_at TIMESTAMPTZ`);
   await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
   await db.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
   await db.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);
@@ -197,6 +202,7 @@ export async function upsertUser(input: {
       createdAt: ts,
       lastLoginAt: ts,
       blockedAt: null,
+      state: null,
     });
   }
 }
@@ -425,8 +431,8 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
     const [{ rows: users }, votes] = await Promise.all([
       db.query<{
         twitter_id: string; username: string | null; name: string | null; email: string | null;
-        image: string | null; created_at: Date; last_login_at: Date; blocked_at: Date | null;
-      }>("SELECT twitter_id, username, name, email, image, created_at, last_login_at, blocked_at FROM users ORDER BY last_login_at DESC"),
+        image: string | null; created_at: Date; last_login_at: Date; blocked_at: Date | null; state: string | null;
+      }>("SELECT twitter_id, username, name, email, image, created_at, last_login_at, blocked_at, state FROM users ORDER BY last_login_at DESC"),
       listVotes(),
     ]);
     return users.map((user) => ({
@@ -438,6 +444,7 @@ export async function listAdminUsers(): Promise<AdminUserRecord[]> {
       createdAt: user.created_at.toISOString(),
       lastLoginAt: user.last_login_at.toISOString(),
       blockedAt: user.blocked_at?.toISOString() ?? null,
+      state: user.state,
       votes: votes.filter((vote) => vote.twitterId === user.twitter_id),
     }));
   }
@@ -514,4 +521,76 @@ export async function deleteAdminUsers(twitterIds: string[]) {
   memory.messages = memory.messages.filter((message) => !twitterIds.includes(message.twitterId));
   memory.votes = memory.votes.filter((vote) => !twitterIds.includes(vote.twitterId));
   memory.users = memory.users.filter((user) => !twitterIds.includes(user.twitterId));
+}
+
+
+export async function getUserState(twitterId: string): Promise<string | null> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{ state: string | null }>("SELECT state FROM users WHERE twitter_id = $1", [twitterId]);
+    if (rows[0]?.state) return rows[0].state;
+    const votes = await listUserVotes(twitterId);
+    return votes[0]?.state ?? null;
+  }
+  const user = memory.users.find((item) => item.twitterId === twitterId);
+  return user?.state ?? memory.votes.find((vote) => vote.twitterId === twitterId)?.state ?? null;
+}
+
+export async function setUserState(twitterId: string, state: string) {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    await db.query("UPDATE users SET state = $2 WHERE twitter_id = $1", [twitterId, state]);
+    return;
+  }
+  const user = memory.users.find((item) => item.twitterId === twitterId);
+  if (user) user.state = state;
+}
+
+
+export async function canUserDeleteVotes(twitterId: string): Promise<boolean> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{ votes_deleted_at: Date | null }>(
+      "SELECT votes_deleted_at FROM users WHERE twitter_id = $1",
+      [twitterId],
+    );
+    return !rows[0]?.votes_deleted_at;
+  }
+  const user = memory.users.find((item) => item.twitterId === twitterId) as (UserRecord & { votesDeletedAt?: string | null }) | undefined;
+  return !user?.votesDeletedAt;
+}
+
+export async function deleteOwnVotesOnce(twitterId: string): Promise<boolean> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const client = await db.connect();
+    try {
+      await client.query("BEGIN");
+      const { rowCount } = await client.query(
+        "UPDATE users SET votes_deleted_at = NOW() WHERE twitter_id = $1 AND votes_deleted_at IS NULL",
+        [twitterId],
+      );
+      if (!rowCount) {
+        await client.query("ROLLBACK");
+        return false;
+      }
+      await client.query("DELETE FROM votes WHERE twitter_id = $1", [twitterId]);
+      await client.query("COMMIT");
+      return true;
+    } catch (error) {
+      await client.query("ROLLBACK");
+      throw error;
+    } finally {
+      client.release();
+    }
+  }
+  const user = memory.users.find((item) => item.twitterId === twitterId) as (UserRecord & { votesDeletedAt?: string | null }) | undefined;
+  if (!user || user.votesDeletedAt) return false;
+  user.votesDeletedAt = nowIso();
+  memory.votes = memory.votes.filter((vote) => vote.twitterId !== twitterId);
+  return true;
 }
