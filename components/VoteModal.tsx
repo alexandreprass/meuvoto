@@ -11,12 +11,14 @@ import { XIcon } from "./XIcon";
 type Props = {
   open: boolean;
   summary: boolean;
+  changing: boolean;
   office: OfficeId;
   selectedState: string;
   candidates: Candidate[];
   me: MePayload | null;
   voteCandidates: Partial<Record<OfficeId, Candidate>>;
   onSelectOffice: (office: OfficeId) => void;
+  onChangeOffice: (office: OfficeId) => void;
   onClose: () => void;
   onVoted: () => void;
 };
@@ -24,12 +26,14 @@ type Props = {
 export function VoteModal({
   open,
   summary,
+  changing,
   office,
   selectedState,
   candidates,
   me,
   voteCandidates,
   onSelectOffice,
+  onChangeOffice,
   onClose,
   onVoted,
 }: Props) {
@@ -38,12 +42,13 @@ export function VoteModal({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
+  const [notice, setNotice] = useState<string | null>(null);
 
 
   const stateKey = state ? voteScope(office, state) : "";
   const currentVote =
     me?.votes.find((vote) => vote.office === office && vote.stateKey === stateKey) ?? null;
-  const alreadyVoted = Boolean(currentVote);
+  const alreadyVoted = Boolean(currentVote) && !changing;
   const votedCandidate = currentVote
     ? candidates.find((candidate) => candidate.id === currentVote.candidateId)
     : null;
@@ -106,7 +111,20 @@ export function VoteModal({
                           {targetOffice !== "presidente" ? " · " + targetVote.state : ""}
                         </p>
                       </div>
-                      <span className="text-xs font-semibold text-emerald-600">Votado</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!targetVote.canChange) {
+                            setNotice("AGUARDE DOMINGO 00:00 PARA MUDAR SEU VOTO");
+                            return;
+                          }
+                          setNotice(null);
+                          onChangeOffice(targetOffice);
+                        }}
+                        className="shrink-0 text-xs font-semibold uppercase text-emerald-700 hover:text-emerald-900"
+                      >
+                        Mudar voto
+                      </button>
                     </>
                   ) : (
                     <>
@@ -127,6 +145,11 @@ export function VoteModal({
               );
             })}
           </div>
+          {notice ? (
+            <p className="mt-4 rounded-xl bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">
+              {notice}
+            </p>
+          ) : null}
         </div>
       </div>
     );
@@ -144,7 +167,7 @@ export function VoteModal({
     }
     setSubmitting(true);
     try {
-      const res = await fetch("/api/vote", {
+      const res = await fetch(changing ? "/api/vote/change" : "/api/vote", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ office, candidateId, state }),
@@ -187,7 +210,7 @@ export function VoteModal({
               {officeLabel}
             </p>
             <h2 className="text-xl font-semibold text-neutral-950">
-              {alreadyVoted ? "Seu voto foi registrado" : "Registrar voto"}
+              {changing ? "Mudar voto" : alreadyVoted ? "Seu voto foi registrado" : "Registrar voto"}
             </h2>
             <p className="mt-1 text-sm text-neutral-500">
               {stateOffice
@@ -330,7 +353,7 @@ export function VoteModal({
               onClick={submit}
               className="rounded-full bg-emerald-600 px-5 py-3 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
             >
-              {submitting ? "Registrando..." : "Confirmar meu voto"}
+              {submitting ? "Registrando..." : changing ? "Confirmar mudança" : "Confirmar meu voto"}
             </button>
           </div>
         )}

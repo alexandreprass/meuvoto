@@ -18,11 +18,10 @@ type Props = {
   onOffice: (id: string) => void;
   onVote: () => void;
   onVotes: () => void;
-  onProfile: () => void;
   onOpinion: () => void;
 };
 
-export function Header({ me, office, onOffice, onVote, onVotes, onProfile, onOpinion }: Props) {
+export function Header({ me, office, onOffice, onVote, onVotes, onOpinion }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
       <button
@@ -78,7 +77,7 @@ export function Header({ me, office, onOffice, onVote, onVotes, onProfile, onOpi
         <div className="flex items-center gap-2">
           {me?.loggedIn ? (
             <>
-              <button type="button" onClick={onProfile} title="Abrir sua conta" className="flex min-w-0 items-center gap-2 rounded-full border border-neutral-200 py-1 pr-3 pl-1 hover:bg-neutral-50">
+              <div className="flex min-w-0 items-center gap-2 rounded-full border border-neutral-200 py-1 pr-3 pl-1">
                 {me.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
@@ -94,7 +93,7 @@ export function Header({ me, office, onOffice, onVote, onVotes, onProfile, onOpi
                 <span className="max-w-[120px] truncate text-sm text-neutral-700">
                   @{me.username ?? "conta"}
                 </span>
-              </button>
+              </div>
               <button
                 type="button"
                 onClick={me.votes.length > 0 ? onVotes : onVote}

@@ -34,8 +34,7 @@ async function main() {
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       last_login_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       blocked_at TIMESTAMPTZ,
-      state TEXT,
-      votes_deleted_at TIMESTAMPTZ
+      state TEXT
     );
     CREATE TABLE IF NOT EXISTS votes (
       twitter_id TEXT NOT NULL,
@@ -46,6 +45,7 @@ async function main() {
       state TEXT NOT NULL,
       state_key TEXT NOT NULL DEFAULT 'BR',
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       PRIMARY KEY (twitter_id, office, state_key)
     );
     CREATE TABLE IF NOT EXISTS messages (
@@ -62,9 +62,12 @@ async function main() {
 
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS state TEXT`);
-  await pool.query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS votes_deleted_at TIMESTAMPTZ`);
   await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS office TEXT NOT NULL DEFAULT 'presidente'`);
   await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS state_key TEXT`);
+  await pool.query(`ALTER TABLE votes ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`);
+  await pool.query(`UPDATE votes SET updated_at = created_at WHERE updated_at IS NULL`);
+  await pool.query(`ALTER TABLE votes ALTER COLUMN updated_at SET DEFAULT NOW()`);
+  await pool.query(`ALTER TABLE votes ALTER COLUMN updated_at SET NOT NULL`);
   await pool.query(`UPDATE votes SET office = 'presidente' WHERE office IS NULL OR office = ''`);
   await pool.query(`UPDATE votes SET state_key = CASE WHEN office = 'presidente' THEN 'BR' ELSE state END WHERE state_key IS NULL OR state_key = ''`);
   await pool.query(`ALTER TABLE votes ALTER COLUMN state_key SET NOT NULL`);

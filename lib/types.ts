@@ -24,6 +24,8 @@ export type MyVote = {
   state: string;
   stateKey: string;
   createdAt: string;
+  updatedAt: string;
+  canChange: boolean;
 };
 
 export type MePayload = {
@@ -33,7 +35,6 @@ export type MePayload = {
   name?: string;
   image?: string;
   state?: string | null;
-  canDeleteVotes?: boolean;
   vote: MyVote | null;
   votes: MyVote[];
 };

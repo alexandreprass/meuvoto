@@ -9,7 +9,6 @@ import { StatePanel } from "./StatePanel";
 import { VoteModal } from "./VoteModal";
 import { OpinionChat } from "./OpinionChat";
 import { StateGateModal } from "./StateGateModal";
-import { ProfileModal } from "./ProfileModal";
 import { emptyResults } from "@/lib/results-client";
 import { formatVotes, STATES, UF_MAP } from "@/lib/states";
 import type { MePayload, ResultsPayload } from "@/lib/types";
@@ -25,8 +24,8 @@ export function HomeClient() {
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [voteOpen, setVoteOpen] = useState(false);
   const [voteSummary, setVoteSummary] = useState(false);
+  const [changingVote, setChangingVote] = useState(false);
   const [stateGateOpen, setStateGateOpen] = useState(false);
-  const [profileOpen, setProfileOpen] = useState(false);
   const [pendingVoteSummary, setPendingVoteSummary] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [soon, setSoon] = useState<string | null>(null);
@@ -115,6 +114,7 @@ export function HomeClient() {
   }
 
   function requestVote(summary = false) {
+    setChangingVote(false);
     if (me?.loggedIn && !me.state) {
       setPendingVoteSummary(summary);
       setStateGateOpen(true);
@@ -148,7 +148,6 @@ export function HomeClient() {
         onOffice={handleOffice}
         onVote={() => requestVote(false)}
         onVotes={() => requestVote(true)}
-        onProfile={() => setProfileOpen(true)}
         onOpinion={() => setChatOpen(true)}
       />
 
@@ -288,6 +287,7 @@ export function HomeClient() {
         <VoteModal
           open={voteOpen}
           summary={voteSummary}
+          changing={changingVote}
           office={office}
           selectedState={me?.state ?? selectedState}
           candidates={candidateCache[office + ":" + (office === "presidente" ? "BR" : me?.state ?? selectedState)] ?? []}
@@ -297,6 +297,13 @@ export function HomeClient() {
             return [vote.office, candidateCache[key]?.find((candidate) => candidate.id === vote.candidateId)];
           }))}
           onSelectOffice={(targetOffice) => {
+            setChangingVote(false);
+            setOffice(targetOffice);
+            setVoteSummary(false);
+            void loadCandidates(targetOffice, me?.state ?? selectedState);
+          }}
+          onChangeOffice={(targetOffice) => {
+            setChangingVote(true);
             setOffice(targetOffice);
             setVoteSummary(false);
             void loadCandidates(targetOffice, me?.state ?? selectedState);
@@ -304,20 +311,12 @@ export function HomeClient() {
           onClose={() => setVoteOpen(false)}
           onVoted={async () => {
             await load();
+            setChangingVote(false);
             setVoteOpen(false);
           }}
         />
       ) : null}
 
-      <ProfileModal
-        open={profileOpen}
-        me={me}
-        onClose={() => setProfileOpen(false)}
-        onDeleted={async () => {
-          await load();
-          setProfileOpen(false);
-        }}
-      />
 
       <StateGateModal
         open={stateGateOpen}
