@@ -16,12 +16,11 @@ type Props = {
   me: MePayload | null;
   office: string;
   onOffice: (id: string) => void;
-  onVote: () => void;
-  onVotes: () => void;
+  onBallot: () => void;
   onOpinion: () => void;
 };
 
-export function Header({ me, office, onOffice, onVote, onVotes, onOpinion }: Props) {
+export function Header({ me, office, onOffice, onBallot, onOpinion }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
       <button
@@ -96,10 +95,10 @@ export function Header({ me, office, onOffice, onVote, onVotes, onOpinion }: Pro
               </div>
               <button
                 type="button"
-                onClick={me.votes.length > 0 ? onVotes : onVote}
+                onClick={onBallot}
                 className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
               >
-                {me.votes.length > 0 ? "Seus votos" : "Votar"}
+                Sua cédula
               </button>
               <button
                 type="button"
@@ -113,10 +112,10 @@ export function Header({ me, office, onOffice, onVote, onVotes, onOpinion }: Pro
             <>
               <button
                 type="button"
-                onClick={onVote}
+                onClick={onBallot}
                 className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
               >
-                Votar
+                Sua cédula
               </button>
               <button
                 type="button"

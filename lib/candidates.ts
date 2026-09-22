@@ -11,6 +11,9 @@ export const CANDIDATES: Candidate[] = [
     number: "22",
     photo: "/candidates/flavio-bolsonaro.jpg",
     color: "#1D4ED8",
+    sq: "280002551544",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002551544",
   },
   {
     id: "lula",
@@ -20,6 +23,9 @@ export const CANDIDATES: Candidate[] = [
     number: "13",
     photo: "/candidates/lula.jpg",
     color: "#DC2626",
+    sq: "280002542548",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002542548",
   },
   {
     id: "renan-santos",
@@ -29,6 +35,9 @@ export const CANDIDATES: Candidate[] = [
     number: "14",
     photo: "/candidates/renan-santos.jpg",
     color: "#CA8A04",
+    sq: "280002540694",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002540694",
   },
   {
     id: "augusto-cury",
@@ -38,6 +47,9 @@ export const CANDIDATES: Candidate[] = [
     number: "70",
     photo: "/candidates/augusto-cury.jpg",
     color: "#7C3AED",
+    sq: "280002551547",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002551547",
   },
   {
     id: "ronaldo-caiado",
@@ -47,6 +59,9 @@ export const CANDIDATES: Candidate[] = [
     number: "55",
     photo: "/candidates/ronaldo-caiado.jpg",
     color: "#0891B2",
+    sq: "280002551932",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002551932",
   },
   {
     id: "zema",
@@ -56,6 +71,9 @@ export const CANDIDATES: Candidate[] = [
     number: "30",
     photo: "/candidates/zema.jpg",
     color: "#EA580C",
+    sq: "280002539826",
+    tseUf: "BR",
+    source: "TSE SQ_CANDIDATO 280002539826",
   },
 ];
 

@@ -1,25 +1,17 @@
 import { auth } from "@/auth";
-import { getCandidateForOffice } from "@/lib/ballot";
-import { addMessage, listUserVotes, listMessages } from "@/lib/store";
+import { addMessage, listMessages } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 function serialize(messages: Awaited<ReturnType<typeof listMessages>>) {
-  return messages.map((m) => {
-    const candidate = m.candidateId
-      ? getCandidateForOffice("presidente", m.candidateId)
-      : undefined;
-    return {
-      id: m.id,
-      name: m.name || m.username || "Usuário",
-      username: m.username,
-      candidateNumber: candidate?.number ?? null,
-      candidateColor: candidate?.color ?? null,
-      body: m.body,
-      createdAt: m.createdAt,
-    };
-  });
+  return messages.map((m) => ({
+    id: m.id,
+    name: m.name || m.username || "Usuário",
+    username: m.username,
+    body: m.body,
+    createdAt: m.createdAt,
+  }));
 }
 
 export async function GET() {
@@ -34,15 +26,6 @@ export async function POST(req: Request) {
     return Response.json(
       { error: "Entre com o X para participar." },
       { status: 401 },
-    );
-  }
-
-  const votes = await listUserVotes(twitterId);
-  const vote = votes.find((item) => item.office === "presidente");
-  if (!vote) {
-    return Response.json(
-      { error: "Vote para presidente primeiro para dar sua opinião" },
-      { status: 403 },
     );
   }
 
@@ -65,7 +48,7 @@ export async function POST(req: Request) {
     twitterId,
     username: session.user.username ?? null,
     name: session.user.name ?? session.user.username ?? null,
-    candidateId: vote.candidateId,
+    candidateId: null,
     body: text,
   });
 

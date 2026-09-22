@@ -9,16 +9,16 @@ export default function TermosPage() {
       <h1 className="mt-6 text-3xl font-semibold">Termos de uso</h1>
       <div className="mt-6 space-y-4 text-sm leading-relaxed text-neutral-600">
         <p>
-          O meuvoto.org é uma enquete cívica, não substitui o TSE nem urna
-          eletrônica.
+          O meuvoto.org guarda a cédula pessoal de quem entra com o X. Essa lista
+          não é publicada e não substitui a urna do TSE.
         </p>
         <p>
-          Cada conta do X tem direito a 1 voto para presidente. Ao votar, você
-          informa o estado e escolhe um candidato.
+          Bens e prestação de contas vêm do DivulgaCandContas. O site não soma
+          escolhas nem mostra quem está na frente.
         </p>
         <p>
-          O login via X serve apenas para autenticar a conta. Uso abusivo pode
-          ter o voto anulado.
+          O login via X serve para reconhecer a conta. Uso abusivo pode ter a
+          cédula apagada.
         </p>
       </div>
     </main>

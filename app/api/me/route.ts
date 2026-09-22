@@ -1,7 +1,6 @@
 import { auth } from "@/auth";
 import { getUserState, listUserVotes } from "@/lib/store";
 import type { MePayload } from "@/lib/types";
-import { canChangeVote } from "@/lib/vote-cycle";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -11,24 +10,14 @@ export async function GET() {
   const twitterId = session?.user?.twitterId;
 
   if (!twitterId) {
-    const payload: MePayload = { loggedIn: false, vote: null, votes: [] };
+    const payload: MePayload = { loggedIn: false, choices: [] };
     return Response.json(payload);
   }
 
-  const [votes, state] = await Promise.all([
+  const [choices, state] = await Promise.all([
     listUserVotes(twitterId),
     getUserState(twitterId),
   ]);
-  const serializedVotes = votes.map((vote) => ({
-    office: vote.office,
-    candidateId: vote.candidateId,
-    state: vote.state,
-    stateKey: vote.stateKey,
-    createdAt: vote.createdAt,
-    updatedAt: vote.updatedAt,
-    canChange: canChangeVote(vote.updatedAt),
-  }));
-  const presidentVote = serializedVotes.find((vote) => vote.office === "presidente") ?? null;
 
   const payload: MePayload = {
     loggedIn: true,
@@ -37,8 +26,14 @@ export async function GET() {
     name: session.user.name ?? undefined,
     image: session.user.image ?? undefined,
     state,
-    vote: presidentVote,
-    votes: serializedVotes,
+    choices: choices.map((choice) => ({
+      office: choice.office,
+      candidateId: choice.candidateId,
+      state: choice.state,
+      stateKey: choice.stateKey,
+      createdAt: choice.createdAt,
+      updatedAt: choice.updatedAt,
+    })),
   };
 
   return Response.json(payload);

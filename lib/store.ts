@@ -1,7 +1,6 @@
 import { randomUUID } from "crypto";
 import { Pool } from "pg";
 import { voteScope, type OfficeId } from "./offices";
-import { canChangeVote, currentVoteCycleStart } from "./vote-cycle";
 
 export type UserRecord = {
   twitterId: string;
@@ -342,7 +341,7 @@ export async function createVote(
   return { ok: true };
 }
 
-export async function changeVote(input: {
+export async function saveChoice(input: {
   twitterId: string;
   twitterUser: string | null;
   twitterName: string | null;
@@ -350,37 +349,64 @@ export async function changeVote(input: {
   candidateId: string;
   state: string;
   stateKey: string;
-}): Promise<{ ok: true } | { ok: false; reason: "not_found" | "locked" | "same_candidate" }> {
-  const existing = await findVote(input.twitterId, input.office, input.stateKey);
-  if (!existing) return { ok: false, reason: "not_found" };
-  if (existing.candidateId === input.candidateId) return { ok: false, reason: "same_candidate" };
-  if (!canChangeVote(existing.updatedAt)) return { ok: false, reason: "locked" };
+}): Promise<VoteRecord> {
+  await upsertUser({
+    twitterId: input.twitterId,
+    username: input.twitterUser,
+    name: input.twitterName,
+  });
 
   const db = getPool();
   if (db) {
     await ensureSchema(db);
-    const { rowCount } = await db.query(
-      `UPDATE votes
-       SET candidate_id = $4, twitter_user = $5, twitter_name = $6, updated_at = NOW()
-       WHERE twitter_id = $1 AND office = $2 AND state_key = $3 AND updated_at < $7`,
+    const { rows } = await db.query<{
+      twitter_id: string;
+      twitter_user: string | null;
+      twitter_name: string | null;
+      office: string | null;
+      candidate_id: string;
+      state: string;
+      state_key: string | null;
+      created_at: Date;
+      updated_at: Date;
+    }>(
+      `INSERT INTO votes (twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at, updated_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),NOW())
+       ON CONFLICT (twitter_id, office, state_key) DO UPDATE SET
+         candidate_id = EXCLUDED.candidate_id,
+         twitter_user = EXCLUDED.twitter_user,
+         twitter_name = EXCLUDED.twitter_name,
+         state = EXCLUDED.state,
+         updated_at = NOW()
+       RETURNING twitter_id, twitter_user, twitter_name, office, candidate_id, state, state_key, created_at, updated_at`,
       [
         input.twitterId,
-        input.office,
-        input.stateKey,
-        input.candidateId,
         input.twitterUser,
         input.twitterName,
-        currentVoteCycleStart(),
+        input.office,
+        input.candidateId,
+        input.state,
+        input.stateKey,
       ],
     );
-    return rowCount ? { ok: true } : { ok: false, reason: "locked" };
+    return normalizeVote(rows[0]);
   }
 
-  existing.candidateId = input.candidateId;
-  existing.twitterUser = input.twitterUser;
-  existing.twitterName = input.twitterName;
-  existing.updatedAt = nowIso();
-  return { ok: true };
+  const existing = memory.votes.find(
+    (vote) => vote.twitterId === input.twitterId && vote.office === input.office && vote.stateKey === input.stateKey,
+  );
+  if (existing) {
+    existing.candidateId = input.candidateId;
+    existing.twitterUser = input.twitterUser;
+    existing.twitterName = input.twitterName;
+    existing.state = input.state;
+    existing.updatedAt = nowIso();
+    return existing;
+  }
+
+  const created: VoteRecord = { ...input, createdAt: nowIso(), updatedAt: nowIso() };
+  memory.votes.push(created);
+  return created;
 }
 
 export async function listMessages(): Promise<MessageRecord[]> {

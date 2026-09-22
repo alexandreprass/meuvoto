@@ -1,31 +1,12 @@
 import type { OfficeId } from "./offices";
 
-export type CandidateTally = {
-  id: string;
-  votes: number;
-  percent: number;
-};
-
-export type StateTally = {
-  total: number;
-  candidates: CandidateTally[];
-};
-
-export type ResultsPayload = {
-  office: OfficeId;
-  total: number;
-  national: CandidateTally[];
-  byState: Record<string, StateTally>;
-};
-
-export type MyVote = {
+export type MyChoice = {
   office: OfficeId;
   candidateId: string;
   state: string;
   stateKey: string;
   createdAt: string;
   updatedAt: string;
-  canChange: boolean;
 };
 
 export type MePayload = {
@@ -35,6 +16,5 @@ export type MePayload = {
   name?: string;
   image?: string;
   state?: string | null;
-  vote: MyVote | null;
-  votes: MyVote[];
+  choices: MyChoice[];
 };

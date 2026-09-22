@@ -3,14 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import type { MePayload } from "@/lib/types";
-import { getCandidate } from "@/lib/candidates";
 
 type ChatItem = {
   id: string;
   name: string;
   username: string | null;
-  candidateNumber: string | null;
-  candidateColor: string | null;
   body: string;
   createdAt: string;
 };
@@ -19,10 +16,9 @@ type Props = {
   open: boolean;
   me: MePayload | null;
   onClose: () => void;
-  onVote: () => void;
 };
 
-export function OpinionChat({ open, me, onClose, onVote }: Props) {
+export function OpinionChat({ open, me, onClose }: Props) {
   const [messages, setMessages] = useState<ChatItem[]>([]);
   const [text, setText] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -52,17 +48,10 @@ export function OpinionChat({ open, me, onClose, onVote }: Props) {
 
   if (!open) return null;
 
-  const voted = Boolean(me?.vote);
-  const myCandidate = me?.vote ? getCandidate(me.vote.candidateId) : null;
-
   async function send() {
     setError(null);
     if (!me?.loggedIn) {
       signIn("twitter");
-      return;
-    }
-    if (!voted) {
-      setError("Vote para presidente primeiro para dar sua opinião");
       return;
     }
     const body = text.trim();
@@ -116,21 +105,13 @@ export function OpinionChat({ open, me, onClose, onVote }: Props) {
         <div ref={scroller} className="flex-1 space-y-3 overflow-y-auto px-4 py-4">
           {messages.length === 0 ? (
             <p className="text-center text-sm text-neutral-400">
-              Nenhuma mensagem ainda. Quem votou pode começar.
+              Nenhuma mensagem ainda.
             </p>
           ) : (
             messages.map((m) => (
               <div key={m.id} className="rounded-2xl bg-neutral-50 px-3 py-2">
                 <p className="text-xs font-semibold text-neutral-950">
                   {m.name}
-                  {m.candidateNumber ? (
-                    <span
-                      className="ml-1.5 font-bold"
-                      style={{ color: m.candidateColor ?? "#111" }}
-                    >
-                      (VOTA {m.candidateNumber})
-                    </span>
-                  ) : null}
                 </p>
                 <p className="mt-0.5 text-sm text-neutral-700">{m.body}</p>
               </div>
@@ -139,29 +120,19 @@ export function OpinionChat({ open, me, onClose, onVote }: Props) {
         </div>
 
         <div className="border-t border-neutral-100 p-4">
-          {!voted ? (
-            <div className="rounded-2xl bg-amber-50 px-4 py-3 text-center">
-              <p className="text-sm font-medium text-amber-950">
-                Vote para presidente primeiro para dar sua opinião
-              </p>
+          {!me?.loggedIn ? (
+            <div className="rounded-2xl bg-neutral-50 px-4 py-3 text-center">
+              <p className="text-sm font-medium text-neutral-700">Entre com o X para escrever.</p>
               <button
                 type="button"
-                onClick={onVote}
+                onClick={() => signIn("twitter")}
                 className="mt-2 rounded-full bg-neutral-950 px-4 py-2 text-xs font-semibold text-white"
               >
-                Votar agora
+                Entrar com X
               </button>
             </div>
           ) : (
             <>
-              {myCandidate ? (
-                <p className="mb-2 text-[11px] text-neutral-400">
-                  Você aparece como {me?.name || me?.username}{" "}
-                  <span className="font-semibold" style={{ color: myCandidate.color }}>
-                    (VOTA {myCandidate.number})
-                  </span>
-                </p>
-              ) : null}
               <div className="flex gap-2">
                 <input
                   value={text}

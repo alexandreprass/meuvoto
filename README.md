@@ -1,14 +1,14 @@
 # meuvoto.org
 
-Enquete independente para presidente, senador, deputado federal e deputado estadual/distrital. A pessoa entra com a conta do **X**, informa o estado e vota **uma vez por cargo**. O mapa mostra o país por estado; no hover (ou toque no celular) aparecem votos e % daquele estado.
+Cédula pessoal para presidente, senador, deputado federal e deputado estadual/distrital. A pessoa entra com a conta do **X**, informa o estado e guarda a própria escolha. O mapa só serve para navegar o estado. Não há placar, percentual nem ranking.
 
-Os candidatos estaduais são separados por UF e os resultados aparecem no mapa e no painel lateral.
+A ficha do candidato puxa bens declarados e prestação de contas no DivulgaCandContas do TSE.
 
 ## Stack
 
 - Next.js 16 (App Router) + TypeScript + Tailwind CSS 4
 - Auth.js v5 com OAuth 2.0 do X
-- Votos e mensagens em Postgres quando `DATABASE_URL` existe (1 voto por `twitterId`)
+- Escolhas e mensagens em Postgres quando `DATABASE_URL` existe (a cédula fica ligada ao `twitterId` e não é publicada)
 - Modo local sem `DATABASE_URL` usa memória do processo, útil só para desenvolvimento
 
 ## Rodar local
@@ -38,7 +38,7 @@ Depois:
 npm run dev
 ```
 
-Abra [http://localhost:3000](http://localhost:3000). Sem as chaves do X, o mapa e as barras funcionam; o voto pede login.
+Abra [http://localhost:3000](http://localhost:3000). Sem as chaves do X, o mapa e a lista de candidatos funcionam; guardar a cédula pede login.
 
 ## App no X (Twitter)
 
@@ -72,7 +72,7 @@ AUTH_SECRET=     (Generate no painel)
 AUTH_TWITTER_ID=
 AUTH_TWITTER_SECRET=
 SENHA_ADM=       (senha forte para acessar /adm)
-DATABASE_URL=    (Postgres — obrigatório para votos e chat não zerarem)
+DATABASE_URL=    (Postgres — obrigatório para a cédula e o chat não zerarem)
 ```
 
 `AUTH_URL` é preenchido sozinho com a URL do Render. Quando o domínio for `meuvoto.org`, defina:
@@ -88,7 +88,7 @@ No app do X, acrescente o callback:
 
 O Postgres é o do **próprio Render** (igual o linhadireita). Não usa arquivo JSON em produção.
 
-Se o log mostrar `DATABASE_URL vazia no Render`, o deploy buildou certo, mas o Web Service ainda não tem banco conectado. Sem `DATABASE_URL`, o app não sobe em produção para evitar perder votos, logins e mensagens em restart/redeploy.
+Se o log mostrar `DATABASE_URL vazia no Render`, o deploy buildou certo, mas o Web Service ainda não tem banco conectado. Sem `DATABASE_URL`, o app não sobe em produção para evitar perder escolhas, logins e mensagens em restart/redeploy.
 
 Jeito mais direto:
 
@@ -117,11 +117,11 @@ npm run import:candidates -- caminho/consulta_cand_2026_BRASIL.csv
 Fonte oficial: https://dadosabertos.tse.jus.br/dataset/candidatos-2026
 ## Aviso
 
-Isto **não** é urna oficial nem substitui o TSE. É uma enquete cívica: 1 voto por conta do X.
+Isto **não** é urna oficial nem substitui o TSE. A cédula é pessoal e não é publicada. Bens e contas vêm do DivulgaCandContas.
 
 Fotos: Wikimedia Commons (veja `public/photos-attribution.txt`).
 
 
 ## Administração
 
-Defina `SENHA_ADM` no ambiente do Render e acesse `/adm`. O painel permite consultar cadastros e votos, excluir votos selecionados, bloquear/desbloquear usuários e excluir cadastros com seus votos e mensagens. A senha não é enviada ao cliente nem salva no banco.
+Defina `SENHA_ADM` no ambiente do Render e acesse `/adm`. O painel permite consultar cadastros e cédulas, excluir escolhas selecionadas, bloquear/desbloquear usuários e excluir cadastros com suas escolhas e mensagens. A senha não é enviada ao cliente nem salva no banco.

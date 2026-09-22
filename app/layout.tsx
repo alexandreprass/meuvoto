@@ -9,13 +9,13 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "meuvoto.org — Enquete para presidente",
+  title: "meuvoto.org — sua cédula e a ficha do candidato",
   description:
-    "Vote para presidente com sua conta do X. Um voto por pessoa. Mapa do Brasil com resultados por estado.",
+    "Monte sua cédula com a conta do X e consulte bens e prestação de contas publicados pelo TSE.",
   metadataBase: new URL("https://meuvoto.onrender.com"),
   openGraph: {
     title: "meuvoto.org",
-    description: "Enquete independente para presidente. 1 voto por conta do X.",
+    description: "Sua cédula pessoal e a ficha oficial do candidato no TSE.",
     url: "https://meuvoto.onrender.com",
     siteName: "meuvoto.org",
     locale: "pt_BR",

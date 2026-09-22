@@ -11,6 +11,8 @@ export type Candidate = {
   color: string;
   state?: string;
   source?: string;
+  sq?: string;
+  tseUf?: string;
 };
 
 export const OFFICES: Record<OfficeId, { label: string; plural: string }> = {

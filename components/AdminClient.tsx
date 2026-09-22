@@ -130,12 +130,12 @@ export function AdminClient() {
         <div className="mx-auto flex max-w-[1500px] flex-wrap items-center gap-3 px-4 py-3">
           <div className="mr-auto">
             <h1 className="font-semibold">Administração do meuvoto.org</h1>
-            <p className="text-xs text-neutral-500">{users.length} cadastros · {allVotes.length} votos</p>
+            <p className="text-xs text-neutral-500">{users.length} cadastros · {allVotes.length} escolhas salvas</p>
           </div>
-          <button disabled={busy || selectedVotes.length === 0} onClick={() => action({ action: "delete_votes", votes: chosenVotes.map(({ twitterId, office, stateKey }) => ({ twitterId, office, stateKey })) }, "Excluir os votos selecionados?")} className="rounded-md border border-red-300 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40">Excluir votos ({selectedVotes.length})</button>
+          <button disabled={busy || selectedVotes.length === 0} onClick={() => action({ action: "delete_votes", votes: chosenVotes.map(({ twitterId, office, stateKey }) => ({ twitterId, office, stateKey })) }, "Excluir as escolhas selecionadas?")} className="rounded-md border border-red-300 px-3 py-2 text-xs font-semibold text-red-700 disabled:opacity-40">Excluir escolhas ({selectedVotes.length})</button>
           <button disabled={busy || selectedUsers.length === 0} onClick={() => action({ action: "block_users", twitterIds: selectedUsers }, "Bloquear os usuários selecionados?")} className="rounded-md border border-amber-300 px-3 py-2 text-xs font-semibold text-amber-800 disabled:opacity-40">Bloquear</button>
           <button disabled={busy || selectedUsers.length === 0} onClick={() => action({ action: "unblock_users", twitterIds: selectedUsers }, "Desbloquear os usuários selecionados?")} className="rounded-md border border-neutral-300 px-3 py-2 text-xs font-semibold disabled:opacity-40">Desbloquear</button>
-          <button disabled={busy || selectedUsers.length === 0} onClick={() => action({ action: "delete_users", twitterIds: selectedUsers }, "Excluir definitivamente os cadastros selecionados, seus votos e mensagens?")} className="rounded-md bg-red-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Excluir cadastros</button>
+          <button disabled={busy || selectedUsers.length === 0} onClick={() => action({ action: "delete_users", twitterIds: selectedUsers }, "Excluir definitivamente os cadastros selecionados, suas escolhas e mensagens?")} className="rounded-md bg-red-700 px-3 py-2 text-xs font-semibold text-white disabled:opacity-40">Excluir cadastros</button>
           <button onClick={async () => { await fetch("/api/admin/logout", { method: "POST" }); location.reload(); }} className="rounded-md bg-neutral-950 px-3 py-2 text-xs font-semibold text-white">Sair</button>
         </div>
       </header>
@@ -150,7 +150,7 @@ export function AdminClient() {
                 <th className="p-3">Cadastro</th>
                 <th className="p-3">Status</th>
                 <th className="p-3">Último acesso</th>
-                <th className="p-3">Votos</th>
+                <th className="p-3">Cédula</th>
               </tr>
             </thead>
             <tbody>
@@ -165,7 +165,7 @@ export function AdminClient() {
                   <td className="p-3">{user.blockedAt ? <span className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">Bloqueado</span> : <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Ativo</span>}</td>
                   <td className="p-3 whitespace-nowrap text-neutral-600">{new Date(user.lastLoginAt).toLocaleString("pt-BR")}</td>
                   <td className="p-3">
-                    {user.votes.length === 0 ? <span className="text-neutral-400">Nenhum voto</span> : (
+                    {user.votes.length === 0 ? <span className="text-neutral-400">Nenhuma escolha</span> : (
                       <div className="space-y-2">
                         {user.votes.map((vote) => {
                           const key = voteKey(vote);
