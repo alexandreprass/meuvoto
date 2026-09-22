@@ -53,8 +53,8 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           const selected = candidate.id === selectedId;
           return (
             <li
-              className={`flex items-center gap-3 rounded-2xl border p-2.5 ${
-                selected ? "border-emerald-600 bg-emerald-50" : "border-neutral-200"
+              className={`flex items-center gap-3 rounded-2xl border border-black p-2.5 ${
+                selected ? "bg-emerald-50" : "bg-white"
               }`}
             >
               <button

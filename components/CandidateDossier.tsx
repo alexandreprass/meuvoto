@@ -201,16 +201,6 @@ export function CandidateDossier({
               </ul>
             ) : null}
             <p className="mt-3 text-xs leading-relaxed text-neutral-400">{dossier.note}</p>
-            {dossier.officialUrl ? (
-              <a
-                href={dossier.officialUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="mt-3 inline-block text-sm font-semibold text-emerald-700 hover:text-emerald-900"
-              >
-                Abrir a ficha no DivulgaCandContas
-              </a>
-            ) : null}
           </section>
         ) : null}
       </div>

@@ -100,19 +100,14 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
             fillOpacity={active ? 1 : 0.9}
             fillRule="evenodd"
             stroke={active ? "#111111" : "#ffffff"}
-            strokeWidth={active ? 2.2 : 1}
+            strokeWidth={active ? 1.1 : 0.6}
             strokeLinejoin="round"
-            className="cursor-pointer transition-[filter,stroke-width,fill-opacity] duration-150"
-            style={{
-              filter: active
-                ? "drop-shadow(0 8px 16px rgba(0,0,0,.18))"
-                : "none",
-            }}
+            className="cursor-pointer outline-none"
+            style={{ outline: "none" }}
+            onMouseDown={(e) => e.preventDefault()}
             onMouseEnter={(e) => onHover(state.uf, localPos(e))}
             onMouseMove={(e) => onHover(state.uf, localPos(e))}
-            onFocus={() => onHover(state.uf)}
             onClick={() => onSelect(state.uf)}
-            tabIndex={0}
           >
             <title>{state.name}</title>
           </path>
