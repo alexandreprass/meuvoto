@@ -59,11 +59,11 @@ export async function POST(req: Request) {
         input: [
           {
             role: "system",
-            content: "Escreva biografias políticas factuais e neutras. Não faça elogios ou críticas e não fale de projetos ou propostas. Responda em exatamente 10 linhas. Não invente informações.",
+            content: "Escreva biografias políticas factuais e neutras. Não faça elogios ou críticas e não fale de projetos ou propostas. Responda em exatamente 10 linhas. Não invente informações. Se não encontrar informações suficientes para uma biografia, responda apenas: NÃO ENCONTREI INFORMAÇÕES SUFICIENTES PARA UMA BIOGRAFIA. Não escreva mais nada.",
           },
           {
             role: "user",
-            content: `Gere a biografia do político ${candidate.name}, do partido ${candidate.party}, de forma resumida em 10 linhas. Não fale bem ou mal, nem projetos, só biografia.`,
+            content: `Gere a biografia do político ${candidate.name}, do partido ${candidate.party}, de forma resumida em 10 linhas. Não fale bem ou mal, nem projetos, só biografia. Se você não encontrar informações suficientes para uma biografia, apenas fale NÃO ENCONTREI INFORMAÇÕES SUFICIENTES PARA UMA BIOGRAFIA, somente isso e mais nada.`,
           },
         ],
       }),

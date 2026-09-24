@@ -46,8 +46,8 @@ export async function GET(req: Request) {
   const upstream = await fetch(candidate.photo, {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
-      "User-Agent": "Mozilla/5.0 (compatible; MeuVoto/1.0; +https://meuvoto.org)",
-      Referer: "https://divulgacandcontas.tse.jus.br/",
+      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+      Referer: "https://divulgacandcontas.tse.jus.br/divulga/",
     },
     signal: AbortSignal.timeout(12000),
   });

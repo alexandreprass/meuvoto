@@ -55,7 +55,7 @@ const PARTY_LOGO_ALIASES: Record<string, string> = {
 };
 
 const PARTY_LOGO_EXTENSIONS: Record<string, string> = {
-  MISSAO: "jpg",
+  MISSAO: "png",
   PODE: "png",
   DC: "png",
   PRTB: "png",

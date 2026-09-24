@@ -7,7 +7,7 @@ agir.svg — https://commons.wikimedia.org/wiki/File:Logotipo_do_partido_Agir.sv
 dc.png — https://commons.wikimedia.org/wiki/File:Bandeira-democracia-crist%C3%A3.png — Democracia Cristã
 democrata.svg — https://commons.wikimedia.org/wiki/File:Democratas_(Brazil)_logo_(2018-2022)_(horizontal).svg — Democratas
 mdb.svg — https://commons.wikimedia.org/wiki/File:Movimento_Democr%C3%A1tico_Brasileiro_(2017).svg — MDB
-missao.jpg — https://commons.wikimedia.org/wiki/File:Logo_Partido_Miss%C3%A3o.jpg — Missão
+missao.png — Logo fornecido pelo responsável pelo site — Missão
 novo.svg — https://commons.wikimedia.org/wiki/File:Partido_Novo_logo_(2023).svg — Partido Novo
 pcdob.svg — https://commons.wikimedia.org/wiki/File:PCdoB_logo.svg — PCdoB
 pco.svg — https://commons.wikimedia.org/wiki/File:Logo_PCO_Institucional.svg — PCO
