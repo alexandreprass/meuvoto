@@ -57,6 +57,16 @@ async function main() {
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS candidate_biographies (
+      candidate_key TEXT PRIMARY KEY,
+      candidate_id TEXT NOT NULL,
+      office TEXT NOT NULL,
+      state TEXT NOT NULL,
+      candidate_name TEXT NOT NULL,
+      party TEXT NOT NULL,
+      biography TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
 
@@ -75,7 +85,7 @@ async function main() {
   await pool.query(`ALTER TABLE votes DROP CONSTRAINT IF EXISTS votes_pkey`);
   await pool.query(`ALTER TABLE votes ADD PRIMARY KEY (twitter_id, office, state_key)`);
 
-  console.log("[init-db] Postgres pronto (users, votes, messages)");
+  console.log("[init-db] Postgres pronto (users, votes, messages, candidate_biographies)");
   await pool.end();
 }
 

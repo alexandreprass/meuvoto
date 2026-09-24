@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { Candidate, OfficeId } from "@/lib/offices";
 import { OFFICES } from "@/lib/offices";
+import { PartyBadge } from "./PartyBadge";
 
 type AssetItem = { description: string; value: number | null };
 type MoneySource = { label: string; value: number };
@@ -38,7 +39,7 @@ function formatMoney(value: number | null) {
   return value === null ? "—" : money.format(value);
 }
 
-type Tab = "patrimonio" | "contas";
+type Tab = "patrimonio" | "biografia";
 
 export function CandidateDossier({
   candidate,
@@ -54,6 +55,16 @@ export function CandidateDossier({
   const [dossier, setDossier] = useState<Dossier | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("patrimonio");
+  const [biography, setBiography] = useState<string | null>(null);
+  const [biographyLength, setBiographyLength] = useState(0);
+  const [biographyLoading, setBiographyLoading] = useState(false);
+  const [biographyError, setBiographyError] = useState<string | null>(null);
+  const requestedBiographies = useRef(new Set<string>());
+  const biographyKey = `${office}:${candidate.state ?? state}:${candidate.id}`;
+  const [tabBiographyKey, setTabBiographyKey] = useState(biographyKey);
+  const activeTab = tabBiographyKey === biographyKey ? tab : "patrimonio";
+  const activeBiographyKey = useRef(biographyKey);
+  activeBiographyKey.current = biographyKey;
 
   useEffect(() => {
     const controller = new AbortController();
@@ -77,7 +88,56 @@ export function CandidateDossier({
 
   useEffect(() => {
     setTab("patrimonio");
-  }, [candidate.id]);
+    setTabBiographyKey(biographyKey);
+    setBiography(null);
+    setBiographyLength(0);
+    setBiographyError(null);
+    setBiographyLoading(false);
+  }, [biographyKey]);
+
+  useEffect(() => {
+    if (activeTab !== "biografia" || requestedBiographies.current.has(biographyKey)) return;
+    requestedBiographies.current.add(biographyKey);
+    setBiographyLoading(true);
+    setBiographyError(null);
+    fetch("/api/candidate/biography", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ office, id: candidate.id, state: candidate.state ?? state }),
+    })
+      .then(async (response) => {
+        const payload = await response.json();
+        if (!response.ok) throw new Error(payload.error ?? "Não foi possível gerar a biografia.");
+        if (activeBiographyKey.current === biographyKey) setBiography(payload.biography as string);
+      })
+      .catch((err: unknown) => {
+        requestedBiographies.current.delete(biographyKey);
+        if (activeBiographyKey.current === biographyKey) {
+          setBiographyError(err instanceof Error ? err.message : "Não foi possível gerar a biografia.");
+        }
+      })
+      .finally(() => {
+        if (activeBiographyKey.current === biographyKey) setBiographyLoading(false);
+      });
+  }, [activeTab, biographyKey, candidate.id, candidate.state, office, state]);
+
+  useEffect(() => {
+    if (!biography || activeTab !== "biografia") {
+      setBiographyLength(0);
+      return;
+    }
+    setBiographyLength(0);
+    const timer = window.setInterval(() => {
+      setBiographyLength((current) => {
+        if (current >= biography.length) {
+          window.clearInterval(timer);
+          return current;
+        }
+        return Math.min(current + 2, biography.length);
+      });
+    }, 18);
+    return () => window.clearInterval(timer);
+  }, [activeTab, biography]);
 
   return (
     <div className="fixed inset-0 z-[70] flex items-end justify-center sm:items-center">
@@ -96,7 +156,10 @@ export function CandidateDossier({
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">{OFFICES[office].label}</p>
-            <h2 className="text-xl font-semibold text-neutral-950">{candidate.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="min-w-0 flex-1 text-xl font-semibold text-neutral-950">{candidate.name}</h2>
+              <PartyBadge party={candidate.party} size={34} />
+            </div>
             <p className="text-sm text-neutral-500">{candidate.fullName}</p>
             <p className="text-sm text-neutral-500">
               {candidate.party} · {candidate.number}
@@ -131,10 +194,10 @@ export function CandidateDossier({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "patrimonio"}
+            aria-selected={activeTab === "patrimonio"}
             onClick={() => setTab("patrimonio")}
             className={`rounded-full px-3 py-2 text-xs font-semibold tracking-wide ${
-              tab === "patrimonio" ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500"
+              activeTab === "patrimonio" ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500"
             }`}
           >
             PATRIMÔNIO
@@ -142,20 +205,20 @@ export function CandidateDossier({
           <button
             type="button"
             role="tab"
-            aria-selected={tab === "contas"}
-            onClick={() => setTab("contas")}
+            aria-selected={activeTab === "biografia"}
+            onClick={() => setTab("biografia")}
             className={`rounded-full px-3 py-2 text-xs font-semibold tracking-wide ${
-              tab === "contas" ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500"
+              activeTab === "biografia" ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500"
             }`}
           >
-            PRESTAÇÃO DE CONTAS
+            BIOGRAFIA COM IA
           </button>
         </div>
 
         {!dossier && !error ? <p className="mt-4 text-sm text-neutral-400">Consultando o TSE...</p> : null}
         {error ? <p className="mt-4 text-sm text-red-600">{error}</p> : null}
 
-        {tab === "patrimonio" && dossier ? (
+        {activeTab === "patrimonio" && dossier ? (
           <section className="mt-4" role="tabpanel">
             <p className="text-sm text-neutral-500">Total declarado: {formatMoney(dossier.assetsTotal)}</p>
             {dossier.assets.length === 0 ? (
@@ -173,34 +236,32 @@ export function CandidateDossier({
           </section>
         ) : null}
 
-        {tab === "contas" && dossier ? (
-          <section className="mt-4" role="tabpanel">
-            <dl className="grid grid-cols-2 gap-3">
-              <div className="rounded-2xl bg-neutral-50 p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-neutral-400">Arrecadado</dt>
-                <dd className="mt-1 text-sm font-semibold tabular-nums">{formatMoney(dossier.raised)}</dd>
+        {activeTab === "biografia" ? (
+          <section className="mt-4 min-h-32 rounded-2xl bg-neutral-50 p-4" role="tabpanel">
+            {biographyLoading ? <p className="text-sm text-neutral-500">Gerando biografia...</p> : null}
+            {biographyError ? (
+              <div className="space-y-3">
+                <p className="text-sm text-red-600">{biographyError}</p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    requestedBiographies.current.delete(biographyKey);
+                    setBiographyError(null);
+                    setTab("patrimonio");
+                    window.setTimeout(() => setTab("biografia"), 0);
+                  }}
+                  className="rounded-full border border-neutral-300 px-4 py-2 text-xs font-semibold text-neutral-700 hover:bg-white"
+                >
+                  Tentar novamente
+                </button>
               </div>
-              <div className="rounded-2xl bg-neutral-50 p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-neutral-400">Despesas</dt>
-                <dd className="mt-1 text-sm font-semibold tabular-nums">{formatMoney(dossier.spent)}</dd>
-              </div>
-              <div className="col-span-2 rounded-2xl bg-neutral-50 p-3">
-                <dt className="text-[11px] uppercase tracking-wide text-neutral-400">Limite de gastos</dt>
-                <dd className="mt-1 text-sm font-semibold tabular-nums">{formatMoney(dossier.spendingLimit)}</dd>
-              </div>
-            </dl>
-            {dossier.sources.length > 0 ? (
-              <ul className="mt-3 space-y-1 text-sm text-neutral-600">
-                <li className="text-[11px] font-semibold uppercase tracking-wide text-neutral-400">Origem das despesas</li>
-                {dossier.sources.map((source) => (
-                  <li key={source.label} className="flex justify-between gap-3">
-                    <span>{source.label}</span>
-                    <span className="tabular-nums text-neutral-950">{formatMoney(source.value)}</span>
-                  </li>
-                ))}
-              </ul>
             ) : null}
-            <p className="mt-3 text-xs leading-relaxed text-neutral-400">{dossier.note}</p>
+            {biography ? (
+              <p className="whitespace-pre-wrap text-sm leading-7 text-neutral-700">
+                {biography.slice(0, biographyLength)}
+                {biographyLength < biography.length ? <span className="ml-0.5 animate-pulse">|</span> : null}
+              </p>
+            ) : null}
           </section>
         ) : null}
       </div>

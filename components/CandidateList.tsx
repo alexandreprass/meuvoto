@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Candidate } from "@/lib/offices";
+import { PartyBadge } from "./PartyBadge";
 
 type Props = {
   candidates: Candidate[];
@@ -53,7 +54,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           const selected = candidate.id === selectedId;
           return (
             <li
-              className={`flex items-center gap-4 rounded-2xl border border-neutral-200 p-3.5 shadow-sm ${
+              className={`flex items-center gap-4 rounded-2xl border border-black p-3.5 shadow-sm ${
                 selected ? "bg-emerald-50" : "bg-white"
               }`}
             >
@@ -61,7 +62,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
                 type="button"
                 onClick={() => onOpen(candidate)}
                 className="shrink-0 rounded-full focus:outline-none focus:ring-2 focus:ring-neutral-400"
-                aria-label={"Ver patrimônio e prestação de contas de " + candidate.name}
+                aria-label={"Ver patrimônio e biografia de " + candidate.name}
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
@@ -80,11 +81,8 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
                   {candidate.party} · {candidate.number}
                 </span>
               </button>
-              {selected ? (
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                  Sua escolha
-                </span>
-              ) : null}
+              <PartyBadge party={candidate.party} size={38} />
+              {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );
         })}

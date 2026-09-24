@@ -20,6 +20,8 @@ export function HomeClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selectedState, setSelectedState] = useState("SP");
   const [me, setMe] = useState<MePayload | null>(null);
+  const [guestMode, setGuestMode] = useState(false);
+  const [guestChoices, setGuestChoices] = useState<Partial<Record<OfficeId, Candidate>>>({});
   const [tip, setTip] = useState<Tip | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
@@ -84,6 +86,9 @@ export function HomeClient() {
   const currentChoice = me?.choices.find(
     (choice) => choice.office === office && choice.stateKey === voteScope(office, accountState ?? selectedState),
   );
+  const selectedCandidateId = guestMode && !me?.loggedIn
+    ? guestChoices[office]?.id
+    : currentChoice?.candidateId;
   const otherState = Boolean(me?.loggedIn && accountState && stateOffice && selectedState !== accountState);
 
   function handleHover(uf: string | null, pos?: MapHoverPos) {
@@ -96,7 +101,7 @@ export function HomeClient() {
 
   function openBallot() {
     if (!me?.loggedIn) {
-      void signIn("twitter");
+      setChoiceOpen(true);
       return;
     }
     if (!me.state) {
@@ -109,8 +114,15 @@ export function HomeClient() {
 
   async function saveCandidate(candidate: Candidate, current = me) {
     if (!current?.loggedIn) {
+      if (guestMode) {
+        setGuestChoices((choices) => ({ ...choices, [office]: candidate }));
+        setDossier(null);
+        setChoiceOpen(true);
+        return;
+      }
       setPendingCandidate(candidate);
-      void signIn("twitter");
+      setDossier(null);
+      setChoiceOpen(true);
       return;
     }
     if (!current.state) {
@@ -145,17 +157,21 @@ export function HomeClient() {
   const tipLeft = tip ? Math.min(Math.max(8, tip.x + 14), Math.max(8, mapWidth - tipWidth - 8)) : 0;
   const tipTop = tip ? Math.max(8, tip.y - 12) : 0;
   const saveHint = !me?.loggedIn
-    ? "Entre com o X para a escolha ficar salva na sua conta."
+    ? guestMode ? "Modo convidado: esta escolha não ficará salva." : "Entre com o X para salvar, ou abra sua cédula e continue como convidado."
     : otherState
       ? `Sua cédula está em ${UF_MAP[accountState ?? ""]?.name ?? accountState}. Este estado é só consulta.`
       : saveError;
 
-  const choicesByOffice = Object.fromEntries(
+  const savedChoicesByOffice = Object.fromEntries(
     (me?.choices ?? []).map((choice) => {
       const key = choice.office + ":" + (choice.office === "presidente" ? "BR" : choice.state);
       return [choice.office, candidateCache[key]?.find((candidate) => candidate.id === choice.candidateId)];
     }),
   ) as Partial<Record<OfficeId, Candidate | undefined>>;
+  const choicesByOffice = !me?.loggedIn && guestMode
+    ? { ...savedChoicesByOffice, ...guestChoices }
+    : savedChoicesByOffice;
+  const emptyMe: MePayload = me ?? { loggedIn: false, choices: [] };
 
   return (
     <div className="flex min-h-full flex-col bg-white">
@@ -168,6 +184,7 @@ export function HomeClient() {
           setPinnedUf(null);
           setTip(null);
           setDossier(null);
+          setChoiceOpen(false);
         }}
         onBallot={openBallot}
         onOpinion={() => setChatOpen(true)}
@@ -184,7 +201,7 @@ export function HomeClient() {
             </p>
           </div>
 
-          <div ref={mapRef} className="relative mx-auto w-full lg:mx-0 lg:w-1/2">
+          <div ref={mapRef} className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
             <BrazilMap
               activeUf={activeUf}
               onHover={handleHover}
@@ -245,7 +262,7 @@ export function HomeClient() {
 
             <CandidateList
               candidates={visibleCandidates}
-              selectedId={otherState ? undefined : currentChoice?.candidateId}
+              selectedId={otherState ? undefined : selectedCandidateId}
               onOpen={setDossier}
             />
 
@@ -254,7 +271,7 @@ export function HomeClient() {
               onClick={openBallot}
               className="mt-6 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800"
             >
-              {me?.choices.length ? "Abrir minha cédula" : "Montar minha cédula"}
+              {me?.choices.length || Object.keys(guestChoices).length ? "Abrir minha cédula" : "Montar minha cédula"}
             </button>
             <p className="mt-3 text-center text-xs leading-relaxed text-neutral-400">
               Consulta de candidatos. A cédula é pessoal e não vira placar.
@@ -264,7 +281,7 @@ export function HomeClient() {
       </main>
 
       <footer className="border-t border-neutral-100 px-4 py-6 text-center text-xs text-neutral-400">
-        meuvoto.org · bens e contas no DivulgaCandContas do TSE
+        meuvoto.org · patrimônio e dados eleitorais com fontes do TSE
       </footer>
 
       {dossier ? (
@@ -272,7 +289,7 @@ export function HomeClient() {
           candidate={dossier}
           office={office}
           state={accountState ?? selectedState}
-          saved={!otherState && currentChoice?.candidateId === dossier.id}
+          saved={!otherState && selectedCandidateId === dossier.id}
           canSave={!otherState}
           saveHint={saveHint}
           saving={saving}
@@ -281,14 +298,27 @@ export function HomeClient() {
         />
       ) : null}
 
-      {choiceOpen && me?.loggedIn ? (
+      {choiceOpen ? (
         <ChoiceModal
-          me={me}
+          me={emptyMe}
           candidatesByOffice={choicesByOffice}
-          onClose={() => setChoiceOpen(false)}
+          guestMode={guestMode && !me?.loggedIn}
+          onGuestMode={() => {
+            setGuestMode(true);
+            if (pendingCandidate) {
+              setGuestChoices((choices) => ({ ...choices, [office]: pendingCandidate }));
+              setPendingCandidate(null);
+            }
+          }}
+          onLogin={() => void signIn("twitter")}
+          onClose={() => {
+            setChoiceOpen(false);
+            setPendingCandidate(null);
+          }}
           onOffice={(target) => {
             setOffice(target);
             setChoiceOpen(false);
+            setPendingCandidate(null);
             if (accountState) setSelectedState(accountState);
           }}
         />

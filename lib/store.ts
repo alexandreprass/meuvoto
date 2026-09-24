@@ -40,10 +40,11 @@ type MemoryStore = {
   users: UserRecord[];
   votes: VoteRecord[];
   messages: MessageRecord[];
+  biographies: Map<string, string>;
 };
 
 const MAX_MESSAGES = 30;
-const memory: MemoryStore = { users: [], votes: [], messages: [] };
+const memory: MemoryStore = { users: [], votes: [], messages: [], biographies: new Map() };
 
 let pool: Pool | null = null;
 let schemaReady = false;
@@ -107,6 +108,16 @@ async function ensureSchema(db: Pool) {
       body TEXT NOT NULL,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
+    CREATE TABLE IF NOT EXISTS candidate_biographies (
+      candidate_key TEXT PRIMARY KEY,
+      candidate_id TEXT NOT NULL,
+      office TEXT NOT NULL,
+      state TEXT NOT NULL,
+      candidate_name TEXT NOT NULL,
+      party TEXT NOT NULL,
+      biography TEXT NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
     CREATE INDEX IF NOT EXISTS messages_created_at_idx ON messages (created_at DESC);
   `);
 
@@ -126,6 +137,48 @@ async function ensureSchema(db: Pool) {
   await db.query(`ALTER TABLE votes ADD PRIMARY KEY (twitter_id, office, state_key)`);
 
   schemaReady = true;
+}
+
+export async function getCandidateBiography(candidateKey: string): Promise<string | null> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{ biography: string }>(
+      "SELECT biography FROM candidate_biographies WHERE candidate_key = $1",
+      [candidateKey],
+    );
+    return rows[0]?.biography ?? null;
+  }
+  return memory.biographies.get(candidateKey) ?? null;
+}
+
+export async function saveCandidateBiography(input: {
+  key: string;
+  id: string;
+  office: string;
+  state: string;
+  name: string;
+  party: string;
+  biography: string;
+}): Promise<string> {
+  const db = getPool();
+  if (db) {
+    await ensureSchema(db);
+    const { rows } = await db.query<{ biography: string }>(
+      `INSERT INTO candidate_biographies
+         (candidate_key, candidate_id, office, state, candidate_name, party, biography)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
+       ON CONFLICT (candidate_key) DO NOTHING
+       RETURNING biography`,
+      [input.key, input.id, input.office, input.state, input.name, input.party, input.biography],
+    );
+    if (rows[0]) return rows[0].biography;
+    return (await getCandidateBiography(input.key)) ?? input.biography;
+  }
+  const existing = memory.biographies.get(input.key);
+  if (existing) return existing;
+  memory.biographies.set(input.key, input.biography);
+  return input.biography;
 }
 
 function nowIso() {
