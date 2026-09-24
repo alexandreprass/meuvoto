@@ -184,7 +184,7 @@ export function HomeClient() {
             </p>
           </div>
 
-          <div ref={mapRef} className="relative mx-auto w-full lg:mx-0 lg:w-1/2">
+          <div ref={mapRef} className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
             <BrazilMap
               activeUf={activeUf}
               onHover={handleHover}
@@ -264,7 +264,7 @@ export function HomeClient() {
       </main>
 
       <footer className="border-t border-neutral-100 px-4 py-6 text-center text-xs text-neutral-400">
-        meuvoto.org · bens e contas no DivulgaCandContas do TSE
+        meuvoto.org · patrimônio e dados eleitorais com fontes do TSE
       </footer>
 
       {dossier ? (
