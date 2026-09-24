@@ -49,7 +49,7 @@ export function CandidateDossier({ candidate, office, onClose, onChoose }: Props
       setAssets(result);
       if (result.length === 0) setAssetsError("A chamada chegou ao TSE, mas nÃ£o retornou bens para este candidato.");
     } catch (error) {
-      setAssetsError(error instanceof TypeError ? "O navegador bloqueou a consulta direta ao TSE (CORS). VocÃª ainda pode abrir a ficha oficial." : error instanceof Error ? error.message : "NÃ£o foi possÃ­vel consultar o TSE.");
+      setAssetsError(error instanceof TypeError ? "A consulta direta nao respondeu. Pode ser um bloqueio do navegador ou do TSE; abra a ficha oficial para conferir." : error instanceof Error ? error.message : "A consulta ao TSE falhou.");
     } finally {
       setLoadingAssets(false);
     }
