@@ -231,6 +231,8 @@ export function HomeClient() {
 
             <CandidateList
               candidates={visibleCandidates}
+              office={office}
+              state={selectedState}
               selectedId={otherState ? undefined : selectedCandidateId}
               onOpen={setDossier}
             />

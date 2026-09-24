@@ -146,7 +146,7 @@ export function CandidateDossier({
         <div className="flex items-start gap-4">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
-            src={candidate.photo}
+            src={candidatePhotoSrc(office, candidate, state)}
             alt=""
             onError={(event) => {
               event.currentTarget.onerror = null;
@@ -267,4 +267,9 @@ export function CandidateDossier({
       </div>
     </div>
   );
+}
+
+function candidatePhotoSrc(office: OfficeId, candidate: Candidate, state: string) {
+  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state });
+  return `/api/candidate/photo?${params}`;
 }

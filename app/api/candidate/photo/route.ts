@@ -44,14 +44,23 @@ export async function GET(req: Request) {
   }
 
   const upstream = await fetch(candidate.photo, {
-    headers: { Referer: "https://divulgacandcontas.tse.jus.br/divulga/" },
+    headers: {
+      Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",
+      "User-Agent": "Mozilla/5.0 (compatible; MeuVoto/1.0; +https://meuvoto.org)",
+      Referer: "https://divulgacandcontas.tse.jus.br/",
+    },
+    signal: AbortSignal.timeout(12000),
   });
   if (!upstream.ok) return new Response("Foto indisponível.", { status: 502 });
   const bytes = await upstream.arrayBuffer();
+  const contentType = upstream.headers.get("content-type")?.split(";")[0].trim().toLowerCase();
+  if (!contentType?.startsWith("image/") || bytes.byteLength < 100) {
+    return new Response("Foto indisponivel.", { status: 502 });
+  }
   return new Response(bytes, {
     headers: {
-      "Content-Type": upstream.headers.get("content-type") || "image/jpeg",
-      "Cache-Control": "public, max-age=86400",
+      "Content-Type": contentType,
+      "Cache-Control": "public, max-age=86400, s-maxage=604800, stale-while-revalidate=86400",
     },
   });
 }

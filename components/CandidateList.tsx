@@ -1,16 +1,18 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Candidate } from "@/lib/offices";
+import type { Candidate, OfficeId } from "@/lib/offices";
 import { PartyBadge } from "./PartyBadge";
 
 type Props = {
   candidates: Candidate[];
+  office: OfficeId;
+  state: string;
   selectedId?: string;
   onOpen: (candidate: Candidate) => void;
 };
 
-export function CandidateList({ candidates, selectedId, onOpen }: Props) {
+export function CandidateList({ candidates, office, state, selectedId, onOpen }: Props) {
   const [query, setQuery] = useState("");
   const ordered = useMemo(
     () =>
@@ -67,7 +69,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={candidate.photo}
+                  src={candidatePhotoSrc(office, candidate, state)}
                   alt=""
                   onError={(event) => {
                     event.currentTarget.onerror = null;
@@ -93,4 +95,9 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
       </ul>
     </div>
   );
+}
+
+function candidatePhotoSrc(office: OfficeId, candidate: Candidate, state: string) {
+  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state });
+  return `/api/candidate/photo?${params}`;
 }
