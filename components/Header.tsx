@@ -32,7 +32,7 @@ export function Header({ office, onOffice, onBallot }: Props) {
             {OFFICES.map((item) => <button key={item.id} type="button" onClick={() => onOffice(item.id)} className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${office === item.id ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>{item.label}</button>)}
           </nav>
         </div>
-        <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">Escolhas temporárias</button>
+        <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
       </div>
       <nav className="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden">
         {OFFICES.map((item) => <button key={item.id} type="button" onClick={() => onOffice(item.id)} className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${office === item.id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{item.label}</button>)}

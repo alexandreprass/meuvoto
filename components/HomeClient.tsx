@@ -139,7 +139,7 @@ export function HomeClient() {
               onOpen={setDossier}
             />
             <button type="button" onClick={() => setChoiceOpen(true)} className="mt-3 w-full rounded-full bg-neutral-950 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800">
-              Ver escolhas temporárias
+              MINHAS ESCOLHAS
             </button>
           </div>
         </aside>

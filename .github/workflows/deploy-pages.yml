@@ -25,6 +25,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Download and prepare TSE asset declarations
+        run: |
+          node scripts/prepare-static-candidates.js
+          curl --fail --location --retry 3 --retry-delay 2 https://cdn.tse.jus.br/estatistica/sead/odsele/bem_candidato/bem_candidato_2026.zip --output "$RUNNER_TEMP/bem_candidato_2026.zip"
+          python3 scripts/prepare-tse-assets.py "$RUNNER_TEMP/bem_candidato_2026.zip"
       - name: Build static site
         run: npm run build
         env:
