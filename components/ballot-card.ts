@@ -1,6 +1,9 @@
+import { getPartyColor, getPartyMark } from "@/lib/party-brand";
+
 export type BallotCardItem = {
   name: string;
   number: string;
+  party: string;
   office: string;
   photoUrl: string;
 };
@@ -56,6 +59,15 @@ export async function renderBallotCard(items: BallotCardItem[]) {
   background.addColorStop(1, "#e5eee6");
   ctx.fillStyle = background;
   ctx.fillRect(0, 0, width, height);
+  ctx.save();
+  ctx.strokeStyle = "rgba(14, 91, 67, 0.08)";
+  ctx.lineWidth = 5;
+  for (let ring = 0; ring < 5; ring += 1) {
+    ctx.beginPath();
+    ctx.arc(width - 15, 80, 110 + ring * 58, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
   ctx.fillStyle = "#0e5b43";
   ctx.fillRect(0, 0, 18, height);
 
@@ -81,10 +93,21 @@ export async function renderBallotCard(items: BallotCardItem[]) {
     ctx.shadowBlur = 22;
     ctx.shadowOffsetY = 8;
     roundedRect(ctx, 72, rowY, 936, 166, 24);
-    ctx.fillStyle = "#ffffff";
+    ctx.fillStyle = "#fcfefc";
     ctx.fill();
+    ctx.shadowColor = "transparent";
+    ctx.strokeStyle = "#cbded1";
+    ctx.lineWidth = 2;
+    ctx.stroke();
     ctx.restore();
 
+    ctx.strokeStyle = "#d6e8dc";
+    ctx.lineWidth = 3;
+    for (const radius of [68, 75]) {
+      ctx.beginPath();
+      ctx.arc(164, rowY + 83, radius, 0, Math.PI * 2);
+      ctx.stroke();
+    }
     ctx.fillStyle = "#e9f3ed";
     ctx.beginPath();
     ctx.arc(164, rowY + 83, 58, 0, Math.PI * 2);
@@ -104,10 +127,23 @@ export async function renderBallotCard(items: BallotCardItem[]) {
     ctx.font = "500 25px Segoe UI, Arial, sans-serif";
     ctx.fillText(`Número ${item.number}`, 248, rowY + 137);
 
+    const partyX = 944;
+    const partyY = rowY + 88;
+    ctx.beginPath();
+    ctx.arc(partyX, partyY, 34, 0, Math.PI * 2);
+    ctx.fillStyle = getPartyColor(item.party);
+    ctx.fill();
+    ctx.strokeStyle = "#ffffff";
+    ctx.lineWidth = 5;
+    ctx.stroke();
+    ctx.textAlign = "center";
+    ctx.fillStyle = "#ffffff";
+    ctx.font = `700 ${getPartyMark(item.party).length > 3 ? 13 : 17}px Segoe UI, Arial, sans-serif`;
+    ctx.fillText(getPartyMark(item.party), partyX, partyY + 6);
     ctx.textAlign = "right";
-    ctx.fillStyle = "#d9e9df";
-    ctx.font = "700 44px Segoe UI, Arial, sans-serif";
-    ctx.fillText(String(index + 1).padStart(2, "0"), 970, rowY + 96);
+    ctx.fillStyle = "#708278";
+    ctx.font = "700 18px Segoe UI, Arial, sans-serif";
+    ctx.fillText(String(index + 1).padStart(2, "0"), 972, rowY + 31);
   });
 
   ctx.textAlign = "left";

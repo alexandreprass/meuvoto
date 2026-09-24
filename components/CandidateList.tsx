@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import type { Candidate } from "@/lib/offices";
+import { PartyBadge } from "./PartyBadge";
 
 type Props = {
   candidates: Candidate[];
@@ -80,11 +81,8 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
                   {candidate.party} · {candidate.number}
                 </span>
               </button>
-              {selected ? (
-                <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-emerald-700">
-                  Sua escolha
-                </span>
-              ) : null}
+              <PartyBadge party={candidate.party} size={38} />
+              {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );
         })}

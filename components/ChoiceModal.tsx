@@ -6,12 +6,16 @@ import { OFFICES } from "@/lib/offices";
 import type { MePayload } from "@/lib/types";
 import { renderBallotCard } from "./ballot-card";
 import { XIcon } from "./XIcon";
+import { PartyBadge } from "./PartyBadge";
 
 const OFFICES_ORDER: OfficeId[] = ["presidente", "senador", "deputado_federal", "deputado_estadual"];
 
 type Props = {
   me: MePayload;
   candidatesByOffice: Partial<Record<OfficeId, Candidate | undefined>>;
+  guestMode: boolean;
+  onGuestMode: () => void;
+  onLogin: () => void;
   onClose: () => void;
   onOffice: (office: OfficeId) => void;
 };
@@ -25,13 +29,12 @@ function photoSrc(office: OfficeId, candidate: Candidate) {
   return `/api/candidate/photo?${params}`;
 }
 
-export function ChoiceModal({ me, candidatesByOffice, onClose, onOffice }: Props) {
+export function ChoiceModal({ me, candidatesByOffice, guestMode, onGuestMode, onLogin, onClose, onOffice }: Props) {
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const chosen = OFFICES_ORDER.flatMap((office) => {
-    const choice = me.choices.find((item) => item.office === office);
     const candidate = candidatesByOffice[office];
-    return choice && candidate ? [{ office, candidate }] : [];
+    return candidate ? [{ office, candidate }] : [];
   });
 
   async function share(target: "image" | "x" | "instagram" | "facebook" | "tiktok") {
@@ -44,6 +47,7 @@ export function ChoiceModal({ me, candidatesByOffice, onClose, onOffice }: Props
         chosen.map(({ office, candidate }) => ({
           name: candidate.name,
           number: candidate.number,
+          party: candidate.party,
           office: OFFICES[office].label,
           photoUrl: photoSrc(office, candidate),
         })),
@@ -93,20 +97,47 @@ export function ChoiceModal({ me, candidatesByOffice, onClose, onOffice }: Props
       <div className="relative max-h-[92vh] w-full overflow-y-auto rounded-t-3xl bg-white p-5 shadow-2xl sm:max-w-lg sm:rounded-3xl sm:p-6">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">Só na sua conta</p>
+            <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">{me.loggedIn ? "Salva na sua conta" : "Monte sua cédula"}</p>
             <h2 className="text-xl font-semibold text-neutral-950">Sua cédula</h2>
             <p className="mt-1 text-sm text-neutral-500">
-              {me.state ? `Estado ${me.state}. Ninguém mais vê esta lista.` : "Escolha um estado para montar a cédula."}
+              {me.loggedIn && me.state
+                ? `Estado ${me.state}. Suas escolhas ficam salvas na sua conta.`
+                : "Escolha os candidatos que você quer incluir."}
             </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-100">
             ×
           </button>
         </div>
+        {!me.loggedIn ? (
+          <div className="mb-5 rounded-2xl border border-neutral-200 bg-neutral-50 p-4 text-center">
+            <button
+              type="button"
+              onClick={onLogin}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-neutral-950 px-4 py-3 text-sm font-semibold text-white hover:bg-neutral-800"
+            >
+              <XIcon className="h-4 w-4" />
+              ENTRAR COM X
+            </button>
+            <p className="mt-1 text-[10px] text-neutral-400">Suas escolhas ficam salvas</p>
+            <button
+              type="button"
+              onClick={onGuestMode}
+              className={`mt-3 w-full rounded-full border px-4 py-3 text-sm font-semibold ${
+                guestMode
+                  ? "border-emerald-700 bg-emerald-50 text-emerald-800"
+                  : "border-neutral-300 bg-white text-neutral-800 hover:bg-neutral-100"
+              }`}
+            >
+              LOGAR COMO CONVIDADO
+            </button>
+            {guestMode ? <p className="mt-1 text-[10px] text-neutral-400">Modo convidado ativo — escolhas não salvas</p> : null}
+          </div>
+        ) : null}
         <div className="flex flex-col gap-3">
           {OFFICES_ORDER.map((office) => {
-            const choice = me.choices.find((item) => item.office === office);
             const candidate = candidatesByOffice[office];
+            const choice = Boolean(candidate);
             return (
               <div key={office} className="flex min-h-20 items-center gap-3 rounded-2xl border border-black px-3 py-3">
                 {candidate && choice ? (
@@ -134,6 +165,7 @@ export function ChoiceModal({ me, candidatesByOffice, onClose, onOffice }: Props
                     </p>
                   ) : null}
                 </div>
+                {candidate ? <PartyBadge party={candidate.party} size={30} /> : null}
                 <button
                   type="button"
                   onClick={() => onOffice(office)}

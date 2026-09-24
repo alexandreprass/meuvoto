@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Candidate, OfficeId } from "@/lib/offices";
 import { OFFICES } from "@/lib/offices";
+import { PartyBadge } from "./PartyBadge";
 
 type AssetItem = { description: string; value: number | null };
 type MoneySource = { label: string; value: number };
@@ -155,7 +156,10 @@ export function CandidateDossier({
           />
           <div className="min-w-0 flex-1">
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">{OFFICES[office].label}</p>
-            <h2 className="text-xl font-semibold text-neutral-950">{candidate.name}</h2>
+            <div className="flex items-center gap-2">
+              <h2 className="min-w-0 flex-1 text-xl font-semibold text-neutral-950">{candidate.name}</h2>
+              <PartyBadge party={candidate.party} size={34} />
+            </div>
             <p className="text-sm text-neutral-500">{candidate.fullName}</p>
             <p className="text-sm text-neutral-500">
               {candidate.party} · {candidate.number}
