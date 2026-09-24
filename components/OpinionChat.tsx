@@ -78,14 +78,8 @@ export function OpinionChat({ open, me, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-neutral-950/40"
-        aria-label="Fechar"
-        onClick={onClose}
-      />
-      <div className="relative flex h-[85vh] w-full max-w-lg flex-col rounded-t-3xl bg-white shadow-2xl sm:h-[640px] sm:rounded-3xl">
+    <div className="fixed bottom-5 right-4 z-50 w-[min(380px,calc(100vw-2rem))] sm:bottom-6 sm:right-6">
+      <div className="flex h-[min(620px,75vh)] flex-col overflow-hidden rounded-3xl border border-neutral-200 bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-neutral-100 px-5 py-3">
           <div>
             <p className="text-xs font-semibold uppercase tracking-wider text-emerald-600">

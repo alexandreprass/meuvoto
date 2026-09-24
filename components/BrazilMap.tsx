@@ -103,14 +103,13 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
             strokeWidth={active ? 1.1 : 0.6}
             strokeLinejoin="round"
             className="cursor-pointer outline-none"
+            aria-label={state.name}
             style={{ outline: "none" }}
             onMouseDown={(e) => e.preventDefault()}
             onMouseEnter={(e) => onHover(state.uf, localPos(e))}
             onMouseMove={(e) => onHover(state.uf, localPos(e))}
             onClick={() => onSelect(state.uf)}
-          >
-            <title>{state.name}</title>
-          </path>
+          />
         );
       })}
     </svg>

@@ -1,10 +1,10 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { signIn } from "next-auth/react";
 import { isStateOffice, OFFICES, voteScope, type Candidate, type OfficeId } from "@/lib/offices";
 import { Header } from "./Header";
-import { BrazilMap, type MapHoverPos } from "./BrazilMap";
+import { BrazilMap } from "./BrazilMap";
 import { StatePanel } from "./StatePanel";
 import { CandidateList } from "./CandidateList";
 import { CandidateDossier } from "./CandidateDossier";
@@ -14,7 +14,6 @@ import { StateGateModal } from "./StateGateModal";
 import { UF_MAP } from "@/lib/states";
 import type { MePayload } from "@/lib/types";
 
-type Tip = { uf: string; x: number; y: number };
 
 export function HomeClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
@@ -22,7 +21,7 @@ export function HomeClient() {
   const [me, setMe] = useState<MePayload | null>(null);
   const [guestMode, setGuestMode] = useState(false);
   const [guestChoices, setGuestChoices] = useState<Partial<Record<OfficeId, Candidate>>>({});
-  const [tip, setTip] = useState<Tip | null>(null);
+  const [hoverUf, setHoverUf] = useState<string | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
   const [stateGateOpen, setStateGateOpen] = useState(false);
@@ -32,8 +31,6 @@ export function HomeClient() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapWidth, setMapWidth] = useState(640);
 
   const loadMe = useCallback(async () => {
     const payload = await fetch("/api/me", { cache: "no-store" }).then((response) => response.json());
@@ -68,18 +65,8 @@ export function HomeClient() {
     return () => window.clearTimeout(timeout);
   }, [choiceOpen, loadCandidates, me?.choices]);
 
-  useEffect(() => {
-    const node = mapRef.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setMapWidth(entry.contentRect.width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
-
   const stateOffice = isStateOffice(office);
-  const activeUf = tip?.uf ?? pinnedUf ?? (stateOffice ? selectedState : null);
+  const activeUf = hoverUf ?? pinnedUf ?? (stateOffice ? selectedState : null);
   const candidateKey = office + ":" + (stateOffice ? selectedState : "BR");
   const visibleCandidates = candidateCache[candidateKey] ?? [];
   const accountState = me?.state ?? null;
@@ -91,13 +78,7 @@ export function HomeClient() {
     : currentChoice?.candidateId;
   const otherState = Boolean(me?.loggedIn && accountState && stateOffice && selectedState !== accountState);
 
-  function handleHover(uf: string | null, pos?: MapHoverPos) {
-    if (!uf) {
-      setTip(null);
-      return;
-    }
-    setTip({ uf, x: pos?.x ?? 0, y: pos?.y ?? 0 });
-  }
+  function handleHover(uf: string | null) { setHoverUf(uf); }
 
   function openBallot() {
     if (!me?.loggedIn) {
@@ -153,9 +134,6 @@ export function HomeClient() {
     }
   }
 
-  const tipWidth = 148;
-  const tipLeft = tip ? Math.min(Math.max(8, tip.x + 14), Math.max(8, mapWidth - tipWidth - 8)) : 0;
-  const tipTop = tip ? Math.max(8, tip.y - 12) : 0;
   const saveHint = !me?.loggedIn
     ? guestMode ? "Modo convidado: esta escolha não ficará salva." : "Entre com o X para salvar, ou abra sua cédula e continue como convidado."
     : otherState
@@ -182,12 +160,11 @@ export function HomeClient() {
           if (!(id in OFFICES)) return;
           setOffice(id as OfficeId);
           setPinnedUf(null);
-          setTip(null);
+          setHoverUf(null);
           setDossier(null);
           setChoiceOpen(false);
         }}
         onBallot={openBallot}
-        onOpinion={() => setChatOpen(true)}
       />
 
       <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-10 lg:py-8">
@@ -201,24 +178,16 @@ export function HomeClient() {
             </p>
           </div>
 
-          <div ref={mapRef} className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
+          <div className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
             <BrazilMap
               activeUf={activeUf}
               onHover={handleHover}
               onSelect={(uf) => {
                 if (stateOffice) setSelectedState(uf);
                 setPinnedUf((current) => (current === uf ? null : uf));
-                setTip(null);
+                setHoverUf(null);
               }}
             />
-            {tip && UF_MAP[tip.uf] ? (
-              <div
-                className="pointer-events-none absolute z-20 hidden w-[148px] lg:block"
-                style={{ left: tipLeft, top: tipTop }}
-              >
-                <StatePanel uf={tip.uf} mini />
-              </div>
-            ) : null}
           </div>
 
           {pinnedUf ? (
@@ -231,25 +200,25 @@ export function HomeClient() {
         </section>
 
         <aside className="w-full shrink-0 lg:w-[520px]">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 lg:sticky lg:top-24">
-            <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          <div className="rounded-3xl border border-neutral-200 bg-white p-3 sm:p-4 lg:sticky lg:top-24">
+            <div className="mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {stateOffice ? UF_MAP[selectedState]?.name ?? selectedState : "Brasil"}
               </p>
-              <h2 className="text-lg font-semibold text-neutral-950">{OFFICES[office].plural}</h2>
+              <h2 className="text-base font-semibold text-neutral-950">{OFFICES[office].plural}</h2>
             </div>
 
             {stateOffice ? (
-              <label className="mb-4 block">
-                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-neutral-400">Estado</span>
+              <label className="mb-2 block">
+                <span className="sr-only">Estado</span>
                 <select
                   value={selectedState}
                   onChange={(event) => {
                     setSelectedState(event.target.value);
                     setPinnedUf(null);
-                    setTip(null);
+                    setHoverUf(null);
                   }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-950 outline-none focus:border-neutral-400"
+                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400"
                 >
                   {Object.values(UF_MAP).map((state) => (
                     <option key={state.uf} value={state.uf}>
@@ -269,7 +238,7 @@ export function HomeClient() {
             <button
               type="button"
               onClick={openBallot}
-              className="mt-6 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800"
+              className="mt-3 w-full rounded-full bg-neutral-950 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800"
             >
               {me?.choices.length || Object.keys(guestChoices).length ? "Abrir minha cédula" : "Montar minha cédula"}
             </button>
@@ -344,6 +313,20 @@ export function HomeClient() {
         }}
       />
 
+      {!chatOpen ? (
+        <button
+          type="button"
+          onClick={() => setChatOpen(true)}
+          aria-label="Dê sua opinião"
+          title="Dê sua opinião"
+          className="fixed bottom-5 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-neutral-950 text-white shadow-xl hover:bg-neutral-800 sm:bottom-6 sm:right-6"
+        >
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.8">
+            <path d="M20 11.5a7.5 7.5 0 0 1-7.5 7.5 8 8 0 0 1-3.5-.8L4 20l1.5-4A7.5 7.5 0 1 1 20 11.5Z" />
+            <path d="M8 11.5h.01M12 11.5h.01M16 11.5h.01" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        </button>
+      ) : null}
       <OpinionChat open={chatOpen} me={me} onClose={() => setChatOpen(false)} />
     </div>
   );

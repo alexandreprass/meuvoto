@@ -1,0 +1,21 @@
+Party logo files are stored locally so they are available in the candidate list and
+the generated ballot image. Source pages and credited party names:
+
+avante.svg — https://commons.wikimedia.org/wiki/File:Avante_70_(Brasil)_logo.svg — Avante
+cidadania.svg — https://commons.wikimedia.org/wiki/File:Cidadania_(Brasil)_logo.svg — Cidadania
+novo.svg — https://commons.wikimedia.org/wiki/File:Partido_Novo_logo_(2023).svg — Partido Novo
+pcdob.svg — https://commons.wikimedia.org/wiki/File:PCdoB_logo.svg — PCdoB
+pdt.svg — https://commons.wikimedia.org/wiki/File:Logo_of_the_Democratic_Labour_Party_(Brazil).svg — PDT
+pl.svg — https://commons.wikimedia.org/wiki/File:Liberal_Party_(Brazil)_logo_(2022).svg — Partido Liberal
+psd.svg — https://commons.wikimedia.org/wiki/File:PSD_Brazil_logo.svg — PSD
+psdb.svg — https://commons.wikimedia.org/wiki/File:Logo_of_the_Brazilian_Social_Democracy_Party_(2023).svg — PSDB
+psol.svg — https://commons.wikimedia.org/wiki/File:Logo_PSOL_roxo.svg — PSOL
+pt.svg — https://commons.wikimedia.org/wiki/File:PT_(Brazil)_logo_2021.svg — PT
+solidariedade.svg — https://commons.wikimedia.org/wiki/File:Solidariedade_77_(Brasil)_logo.svg — Solidariedade
+pv.png — https://pt.wikipedia.org/wiki/Partido_Verde_(Brasil) — Partido Verde
+pl.png — https://pt.wikipedia.org/wiki/Partido_Liberal_(2006) — Partido Liberal
+novo.png — https://pt.wikipedia.org/wiki/Partido_Novo — Partido Novo
+pcdob.png — https://pt.wikipedia.org/wiki/Partido_Comunista_do_Brasil — PCdoB
+psdb.png — https://pt.wikipedia.org/wiki/Partido_da_Social_Democracia_Brasileira — PSDB
+psol.png — https://pt.wikipedia.org/wiki/Partido_Socialismo_e_Liberdade — PSOL
+pt.png — https://pt.wikipedia.org/wiki/Partido_dos_Trabalhadores — PT

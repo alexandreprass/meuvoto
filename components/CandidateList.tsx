@@ -46,15 +46,15 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar por nome, partido ou número"
-          className="mb-3 w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm outline-none focus:border-neutral-400"
+          className="mb-2 w-full rounded-xl border border-neutral-200 px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
         />
       ) : null}
-      <ul className="flex max-h-[62vh] flex-col gap-2 overflow-y-auto pr-1">
+      <ul className="flex max-h-[62vh] flex-col gap-1.5 overflow-y-auto pr-1">
         {visible.map((candidate) => {
           const selected = candidate.id === selectedId;
           return (
             <li
-              className={`flex items-center gap-4 rounded-2xl border border-black p-3.5 shadow-sm ${
+              className={`flex items-center gap-2.5 rounded-xl border border-black p-2 shadow-sm ${
                 selected ? "bg-emerald-50" : "bg-white"
               }`}
             >
@@ -72,16 +72,16 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
                     event.currentTarget.onerror = null;
                     event.currentTarget.src = candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
                   }}
-                  className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
+                  className="h-12 w-12 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
                 />
               </button>
               <button type="button" onClick={() => onOpen(candidate)} className="min-w-0 flex-1 text-left">
-                <span className="block truncate text-base font-semibold text-neutral-950">{candidate.name}</span>
-                <span className="mt-0.5 block text-xs uppercase tracking-wide text-neutral-500">
+                <span className="block truncate text-sm font-semibold text-neutral-950">{candidate.name}</span>
+                <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-neutral-500">
                   {candidate.party} · {candidate.number}
                 </span>
               </button>
-              <PartyBadge party={candidate.party} size={38} />
+              <PartyBadge party={candidate.party} size={30} />
               {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );
