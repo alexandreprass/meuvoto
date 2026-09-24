@@ -173,7 +173,7 @@ export function HomeClient() {
         onOpinion={() => setChatOpen(true)}
       />
 
-      <main className="mx-auto flex w-full max-w-7xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:py-8">
+      <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-10 lg:py-8">
         <section className="relative min-w-0 flex-1">
           <div className="mb-3">
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">
@@ -184,7 +184,7 @@ export function HomeClient() {
             </p>
           </div>
 
-          <div ref={mapRef} className="relative">
+          <div ref={mapRef} className="relative mx-auto w-full lg:mx-0 lg:w-1/2">
             <BrazilMap
               activeUf={activeUf}
               onHover={handleHover}
@@ -213,7 +213,7 @@ export function HomeClient() {
           )}
         </section>
 
-        <aside className="w-full shrink-0 lg:w-[380px]">
+        <aside className="w-full shrink-0 lg:w-[520px]">
           <div className="rounded-3xl border border-neutral-200 bg-white p-5 lg:sticky lg:top-24">
             <div className="mb-5">
               <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">

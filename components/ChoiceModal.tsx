@@ -44,6 +44,7 @@ export function ChoiceModal({ me, candidatesByOffice, onClose, onOffice }: Props
         chosen.map(({ office, candidate }) => ({
           name: candidate.name,
           number: candidate.number,
+          office: OFFICES[office].label,
           photoUrl: photoSrc(office, candidate),
         })),
       );

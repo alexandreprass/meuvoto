@@ -53,7 +53,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           const selected = candidate.id === selectedId;
           return (
             <li
-              className={`flex items-center gap-3 rounded-2xl border border-black p-2.5 ${
+              className={`flex items-center gap-4 rounded-2xl border border-neutral-200 p-3.5 shadow-sm ${
                 selected ? "bg-emerald-50" : "bg-white"
               }`}
             >
@@ -71,12 +71,12 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
                     event.currentTarget.onerror = null;
                     event.currentTarget.src = candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
                   }}
-                  className="h-12 w-12 rounded-full object-cover object-top"
+                  className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
                 />
               </button>
               <button type="button" onClick={() => onOpen(candidate)} className="min-w-0 flex-1 text-left">
-                <span className="block truncate text-sm font-semibold text-neutral-950">{candidate.name}</span>
-                <span className="block text-[11px] uppercase tracking-wide text-neutral-400">
+                <span className="block truncate text-base font-semibold text-neutral-950">{candidate.name}</span>
+                <span className="mt-0.5 block text-xs uppercase tracking-wide text-neutral-500">
                   {candidate.party} · {candidate.number}
                 </span>
               </button>
