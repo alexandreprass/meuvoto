@@ -28,7 +28,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
       value.toLocaleLowerCase("pt-BR").includes(term),
     );
   });
-  const visible = filtered.slice(0, 80);
+  const visible = filtered;
 
   if (candidates.length === 0) {
     return (
@@ -54,6 +54,7 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           const selected = candidate.id === selectedId;
           return (
             <li
+              key={candidate.id}
               className={`flex items-center gap-2.5 rounded-xl border border-black p-2 shadow-sm ${
                 selected ? "bg-emerald-50" : "bg-white"
               }`}
@@ -77,21 +78,19 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
               </button>
               <button type="button" onClick={() => onOpen(candidate)} className="min-w-0 flex-1 text-left">
                 <span className="block truncate text-sm font-semibold text-neutral-950">{candidate.name}</span>
-                <span className="mt-0.5 block text-[10px] uppercase tracking-wide text-neutral-500">
-                  {candidate.party} · {candidate.number}
+                <span className="mt-0.5 block truncate text-[10px] uppercase tracking-wide text-neutral-500">
+                  {candidate.party}
                 </span>
               </button>
+              <span className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-lg font-extrabold tabular-nums tracking-wide text-emerald-900 ring-1 ring-emerald-200 sm:text-xl">
+                {candidate.number}
+              </span>
               <PartyBadge party={candidate.party} size={30} />
               {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );
         })}
       </ul>
-      {filtered.length > visible.length ? (
-        <p className="mt-2 text-center text-xs text-neutral-400">
-          Mostrando 80 de {filtered.length}. Refine a busca.
-        </p>
-      ) : null}
     </div>
   );
 }

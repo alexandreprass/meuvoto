@@ -47,13 +47,19 @@ export function getPartyMark(party: string) {
 }
 
 const PARTY_LOGO_ALIASES: Record<string, string> = {
+  UNIAO: "uniao",
   UNIAOBRASIL: "uniao",
   PCDOB: "pcdob",
+  PRD: "prdt",
+  MOBILIZA: "mobiliza",
 };
 
 const PARTY_LOGO_EXTENSIONS: Record<string, string> = {
   MISSAO: "jpg",
   PODE: "png",
+  DC: "png",
+  PRTB: "png",
+  PSTU: "png",
 };
 
 export function getPartyLogoPath(party: string) {

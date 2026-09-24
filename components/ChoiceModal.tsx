@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Candidate, OfficeId } from "@/lib/offices";
 import { OFFICES } from "@/lib/offices";
 import type { MePayload } from "@/lib/types";
@@ -32,20 +32,20 @@ function photoSrc(office: OfficeId, candidate: Candidate) {
 export function ChoiceModal({ me, candidatesByOffice, guestMode, onGuestMode, onLogin, onClose, onOffice }: Props) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const chosen = OFFICES_ORDER.flatMap((office) => {
     const candidate = candidatesByOffice[office];
     return candidate ? [{ office, candidate }] : [];
   });
   const ballotReady = me.loggedIn || guestMode;
 
+  useEffect(() => () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+  }, [previewUrl]);
+
   async function saveImage() {
     if (chosen.length === 0 || busy) return;
     setNotice(null);
-    const preview = window.open("about:blank", "_blank");
-    if (!preview) {
-      setNotice("Permita abrir uma nova guia para salvar sua imagem.");
-      return;
-    }
     setBusy(true);
     try {
       const blob = await renderBallotCard(chosen.map(({ office, candidate }) => ({
@@ -54,13 +54,14 @@ export function ChoiceModal({ me, candidatesByOffice, guestMode, onGuestMode, on
         party: candidate.party,
         office: OFFICES[office].label,
         photoUrl: photoSrc(office, candidate),
+        fallbackPhotoUrl: candidate.fallbackPhoto,
       })));
       const url = URL.createObjectURL(blob);
-      preview.document.open();
-      preview.document.write(`<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Minha c&eacute;dula | MeuVoto</title><style>*{box-sizing:border-box}body{margin:0;padding:24px;background:#eef3ef;color:#15251e;font:16px system-ui,sans-serif}.page{max-width:900px;margin:auto;text-align:center}.save{display:inline-block;margin:0 auto 20px;padding:13px 22px;border-radius:999px;background:#0e5b43;color:#fff;text-decoration:none;font-weight:700}.image{display:block;width:100%;height:auto;margin:auto;border-radius:16px;box-shadow:0 12px 40px #142d201f}</style></head><body><main class="page"><a class="save" href="${url}" download="minha-cedula-meuvoto.png">Salvar no dispositivo</a><img class="image" src="${url}" alt="Imagem da minha c&eacute;dula"></main></body></html>`);
-      preview.document.close();
+      setPreviewUrl((previous) => {
+        if (previous) URL.revokeObjectURL(previous);
+        return url;
+      });
     } catch {
-      preview.close();
       setNotice("N\u00e3o foi poss\u00edvel gerar a imagem.");
     } finally {
       setBusy(false);
@@ -107,7 +108,7 @@ export function ChoiceModal({ me, candidatesByOffice, guestMode, onGuestMode, on
             </button>
           </div>
         ) : null}
-        {ballotReady ? <>
+      {ballotReady ? <>
         <div className="flex flex-col gap-3">
           {OFFICES_ORDER.map((office) => {
             const candidate = candidatesByOffice[office];
@@ -160,6 +161,19 @@ export function ChoiceModal({ me, candidatesByOffice, guestMode, onGuestMode, on
         </div>
         </> : null}
       </div>
+      {previewUrl ? (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-neutral-950/55 p-4" role="dialog" aria-modal="true" aria-label="Prévia da imagem da cédula">
+          <button type="button" className="absolute inset-0" aria-label="Fechar prévia" onClick={() => setPreviewUrl(null)} />
+          <div className="relative z-10 flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white p-4 shadow-2xl sm:p-5">
+            <button type="button" onClick={() => setPreviewUrl(null)} aria-label="Fechar" className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xl text-neutral-600 shadow">×</button>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={previewUrl} alt="Prévia da imagem da cédula" className="min-h-0 w-full flex-1 rounded-xl object-contain" />
+            <a href={previewUrl} download="minha-cedula-meuvoto.png" className="mt-4 block shrink-0 rounded-full bg-neutral-950 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-800">
+              Salvar no dispositivo
+            </a>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }
