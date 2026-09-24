@@ -270,6 +270,6 @@ export function CandidateDossier({
 }
 
 function candidatePhotoSrc(office: OfficeId, candidate: Candidate, state: string) {
-  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state });
+  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state, display: "browser" });
   return `/api/candidate/photo?${params}`;
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { signIn } from "next-auth/react";
 import { isStateOffice, OFFICES, voteScope, type Candidate, type OfficeId } from "@/lib/offices";
 import { Header } from "./Header";
@@ -31,6 +31,8 @@ export function HomeClient() {
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
+  const [candidateLoadStatus, setCandidateLoadStatus] = useState<Record<string, "loading" | "error">>({});
+  const candidateRequests = useRef(new Set<string>());
 
   const loadMe = useCallback(async () => {
     const payload = await fetch("/api/me", { cache: "no-store" }).then((response) => response.json());
@@ -47,9 +49,25 @@ export function HomeClient() {
   const loadCandidates = useCallback(async (targetOffice: OfficeId, uf?: string) => {
     const stateParam = targetOffice === "presidente" ? "" : "&state=" + (uf ?? selectedState);
     const key = targetOffice + ":" + (targetOffice === "presidente" ? "BR" : uf ?? selectedState);
-    if (candidateCache[key]) return;
-    const payload = await fetch("/api/candidates?office=" + targetOffice + stateParam).then((response) => response.json());
-    setCandidateCache((current) => ({ ...current, [key]: payload.candidates ?? [] }));
+    if (candidateCache[key] || candidateRequests.current.has(key)) return;
+    candidateRequests.current.add(key);
+    setCandidateLoadStatus((current) => ({ ...current, [key]: "loading" }));
+    try {
+      const response = await fetch("/api/candidates?office=" + targetOffice + stateParam);
+      if (!response.ok) throw new Error("Candidate request failed");
+      const payload = await response.json();
+      if (!Array.isArray(payload.candidates)) throw new Error("Candidate data is invalid");
+      setCandidateCache((current) => ({ ...current, [key]: payload.candidates }));
+      setCandidateLoadStatus((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    } catch {
+      setCandidateLoadStatus((current) => ({ ...current, [key]: "error" }));
+    } finally {
+      candidateRequests.current.delete(key);
+    }
   }, [candidateCache, selectedState]);
 
   useEffect(() => {
@@ -233,6 +251,9 @@ export function HomeClient() {
               candidates={visibleCandidates}
               office={office}
               state={selectedState}
+              loading={candidateLoadStatus[candidateKey] === "loading"}
+              loadError={candidateLoadStatus[candidateKey] === "error"}
+              onRetry={() => void loadCandidates(office, selectedState)}
               selectedId={otherState ? undefined : selectedCandidateId}
               onOpen={setDossier}
             />

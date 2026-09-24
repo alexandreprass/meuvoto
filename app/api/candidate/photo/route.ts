@@ -43,6 +43,18 @@ export async function GET(req: Request) {
     return new Response("Foto indisponível.", { status: 404 });
   }
 
+  // Browser display can fetch TSE images directly. Render's outbound connection
+  // to this host times out, so avoid making that request on the web service.
+  if (url.searchParams.get("display") === "browser") {
+    return new Response(null, {
+      status: 302,
+      headers: {
+        Location: candidate.photo,
+        "Cache-Control": "public, max-age=3600",
+      },
+    });
+  }
+
   const upstream = await fetch(candidate.photo, {
     headers: {
       Accept: "image/avif,image/webp,image/apng,image/svg+xml,image/*,*/*;q=0.8",

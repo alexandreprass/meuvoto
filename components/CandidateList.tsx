@@ -8,11 +8,14 @@ type Props = {
   candidates: Candidate[];
   office: OfficeId;
   state: string;
+  loading?: boolean;
+  loadError?: boolean;
+  onRetry?: () => void;
   selectedId?: string;
   onOpen: (candidate: Candidate) => void;
 };
 
-export function CandidateList({ candidates, office, state, selectedId, onOpen }: Props) {
+export function CandidateList({ candidates, office, state, loading, loadError, onRetry, selectedId, onOpen }: Props) {
   const [query, setQuery] = useState("");
   const ordered = useMemo(
     () =>
@@ -34,9 +37,20 @@ export function CandidateList({ candidates, office, state, selectedId, onOpen }:
 
   if (candidates.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
-        Nenhum candidato carregado para este estado.
-      </p>
+      <div className="rounded-2xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-500">
+        {loading ? (
+          <p>Carregando candidatos...</p>
+        ) : loadError ? (
+          <div>
+            <p>Não foi possível carregar os candidatos.</p>
+            <button type="button" onClick={onRetry} className="mt-2 font-semibold text-emerald-800 underline">
+              Tentar novamente
+            </button>
+          </div>
+        ) : (
+          <p>Nenhum candidato carregado para este estado.</p>
+        )}
+      </div>
     );
   }
 
@@ -71,6 +85,9 @@ export function CandidateList({ candidates, office, state, selectedId, onOpen }:
                 <img
                   src={candidatePhotoSrc(office, candidate, state)}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
                   onError={(event) => {
                     event.currentTarget.onerror = null;
                     event.currentTarget.src = candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
@@ -98,6 +115,6 @@ export function CandidateList({ candidates, office, state, selectedId, onOpen }:
 }
 
 function candidatePhotoSrc(office: OfficeId, candidate: Candidate, state: string) {
-  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state });
+  const params = new URLSearchParams({ office, id: candidate.id, state: candidate.state ?? state, display: "browser" });
   return `/api/candidate/photo?${params}`;
 }
