@@ -1,4 +1,5 @@
-import { getPartyColor, getPartyMark } from "@/lib/party-brand";
+import { getPartyLogoPath } from "@/lib/party-brand";
+import { assetUrl } from "@/lib/asset-url";
 
 export type BallotCardItem = {
   name: string;
@@ -6,24 +7,38 @@ export type BallotCardItem = {
   party: string;
   office: string;
   photoUrl: string;
+  fallbackPhotoUrl?: string;
 };
 
 async function loadImage(url: string) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error("foto");
-  const blob = await response.blob();
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const image = new Image();
-    await new Promise<void>((resolve, reject) => {
-      image.onload = () => resolve();
-      image.onerror = () => reject(new Error("foto"));
-      image.src = objectUrl;
-    });
-    return image;
-  } finally {
-    URL.revokeObjectURL(objectUrl);
+  let lastError: unknown;
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    try {
+      const response = await fetch(url, { cache: "force-cache" });
+      if (!response.ok) {
+        if (response.status < 500 && response.status !== 429) throw new Error("foto");
+        throw new Error("foto temporariamente indisponível");
+      }
+      const blob = await response.blob();
+      const objectUrl = URL.createObjectURL(blob);
+      const image = new Image();
+      try {
+        await new Promise<void>((resolve, reject) => {
+          image.onload = () => resolve();
+          image.onerror = () => reject(new Error("foto"));
+          image.src = objectUrl;
+        });
+        return image;
+      } catch (error) {
+        URL.revokeObjectURL(objectUrl);
+        throw error;
+      }
+    } catch (error) {
+      lastError = error;
+      if (attempt < 2) await new Promise((resolve) => window.setTimeout(resolve, 350 * (attempt + 1)));
+    }
   }
+  throw lastError ?? new Error("foto");
 }
 
 function roundedRect(ctx: CanvasRenderingContext2D, x: number, y: number, width: number, height: number, radius: number) {
@@ -85,7 +100,17 @@ export async function renderBallotCard(items: BallotCardItem[]) {
   roundedRect(ctx, 72, 246, 936, 2, 1);
   ctx.fill();
 
-  const images = await Promise.all(items.map((item) => loadImage(item.photoUrl).catch(() => null)));
+  const images: Array<HTMLImageElement | null> = [];
+  for (const item of items) {
+    let image: HTMLImageElement | null = null;
+    try {
+      image = await loadImage(item.photoUrl);
+    } catch {
+      if (item.fallbackPhotoUrl) image = await loadImage(item.fallbackPhotoUrl).catch(() => null);
+    }
+    images.push(image);
+  }
+  const partyLogos = await Promise.all(items.map((item) => loadImage(new URL(assetUrl(getPartyLogoPath(item.party)), window.location.origin).toString()).catch(() => null)));
   items.forEach((item, index) => {
     const rowY = top + index * rowHeight;
     ctx.save();
@@ -123,27 +148,36 @@ export async function renderBallotCard(items: BallotCardItem[]) {
     ctx.font = "700 36px Segoe UI, Arial, sans-serif";
     const name = item.name.length > 31 ? `${item.name.slice(0, 29)}…` : item.name;
     ctx.fillText(name, 248, rowY + 101);
-    ctx.fillStyle = "#5d6d64";
-    ctx.font = "500 25px Segoe UI, Arial, sans-serif";
-    ctx.fillText(`Número ${item.number}`, 248, rowY + 137);
+    ctx.fillStyle = "#0e5b43";
+    ctx.font = "800 42px Segoe UI, Arial, sans-serif";
+    ctx.fillText(item.number, 248, rowY + 151);
 
-    const partyX = 944;
-    const partyY = rowY + 88;
-    ctx.beginPath();
-    ctx.arc(partyX, partyY, 34, 0, Math.PI * 2);
-    ctx.fillStyle = getPartyColor(item.party);
-    ctx.fill();
-    ctx.strokeStyle = "#ffffff";
-    ctx.lineWidth = 5;
-    ctx.stroke();
-    ctx.textAlign = "center";
-    ctx.fillStyle = "#ffffff";
-    ctx.font = `700 ${getPartyMark(item.party).length > 3 ? 13 : 17}px Segoe UI, Arial, sans-serif`;
-    ctx.fillText(getPartyMark(item.party), partyX, partyY + 6);
+    const partyLogo = partyLogos[index];
+    if (partyLogo) {
+      const scale = Math.min(76 / partyLogo.naturalWidth, 76 / partyLogo.naturalHeight);
+      const logoWidth = partyLogo.naturalWidth * scale;
+      const logoHeight = partyLogo.naturalHeight * scale;
+      ctx.drawImage(partyLogo, 912 - logoWidth / 2, rowY + 83 - logoHeight / 2, logoWidth, logoHeight);
+    } else {
+      ctx.fillStyle = "#f3f7f1";
+      roundedRect(ctx, 870, rowY + 56, 84, 54, 12);
+      ctx.fill();
+      ctx.strokeStyle = "#cbded1";
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = "#52665a";
+      ctx.textAlign = "center";
+      ctx.font = "700 19px Segoe UI, Arial, sans-serif";
+      ctx.fillText(item.party.toLocaleUpperCase("pt-BR"), 912, rowY + 89, 76);
+    }
     ctx.textAlign = "right";
     ctx.fillStyle = "#708278";
     ctx.font = "700 18px Segoe UI, Arial, sans-serif";
     ctx.fillText(String(index + 1).padStart(2, "0"), 972, rowY + 31);
+  });
+
+  [...images, ...partyLogos].forEach((image) => {
+    if (image) URL.revokeObjectURL(image.src);
   });
 
   ctx.textAlign = "left";

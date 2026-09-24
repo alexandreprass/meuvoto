@@ -45,3 +45,26 @@ export function getPartyMark(party: string) {
   const normalized = normalizeParty(party);
   return PARTY_MARKS[normalized] ?? party.trim().slice(0, 4).toLocaleUpperCase("pt-BR");
 }
+
+const PARTY_LOGO_ALIASES: Record<string, string> = {
+  UNIAO: "uniao",
+  UNIAOBRASIL: "uniao",
+  PCDOB: "pcdob",
+  PRD: "prdt",
+  MOBILIZA: "mobiliza",
+};
+
+const PARTY_LOGO_EXTENSIONS: Record<string, string> = {
+  MISSAO: "png",
+  PODE: "png",
+  DC: "png",
+  PRTB: "png",
+  PSTU: "png",
+};
+
+export function getPartyLogoPath(party: string) {
+  const key = normalizeParty(party);
+  const filename = PARTY_LOGO_ALIASES[key] ?? key.toLowerCase();
+  const extension = PARTY_LOGO_EXTENSIONS[key] ?? "svg";
+  return `/parties/${filename}.${extension}`;
+}

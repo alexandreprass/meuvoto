@@ -1,58 +1,52 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { signIn } from "next-auth/react";
-import { isStateOffice, OFFICES, voteScope, type Candidate, type OfficeId } from "@/lib/offices";
+import { isStateOffice, OFFICES, type Candidate, type OfficeId } from "@/lib/offices";
 import { Header } from "./Header";
-import { BrazilMap, type MapHoverPos } from "./BrazilMap";
+import { BrazilMap } from "./BrazilMap";
 import { StatePanel } from "./StatePanel";
 import { CandidateList } from "./CandidateList";
 import { CandidateDossier } from "./CandidateDossier";
 import { ChoiceModal } from "./ChoiceModal";
-import { OpinionChat } from "./OpinionChat";
-import { StateGateModal } from "./StateGateModal";
 import { UF_MAP } from "@/lib/states";
-import type { MePayload } from "@/lib/types";
+import { assetUrl } from "@/lib/asset-url";
 
-type Tip = { uf: string; x: number; y: number };
+const OFFICES_ORDER: OfficeId[] = ["presidente", "senador", "deputado_federal", "deputado_estadual"];
 
 export function HomeClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selectedState, setSelectedState] = useState("SP");
-  const [me, setMe] = useState<MePayload | null>(null);
-  const [guestMode, setGuestMode] = useState(false);
-  const [guestChoices, setGuestChoices] = useState<Partial<Record<OfficeId, Candidate>>>({});
-  const [tip, setTip] = useState<Tip | null>(null);
+  const [choices, setChoices] = useState<Partial<Record<OfficeId, Candidate>>>({});
+  const [hoverUf, setHoverUf] = useState<string | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
-  const [stateGateOpen, setStateGateOpen] = useState(false);
-  const [pendingCandidate, setPendingCandidate] = useState<Candidate | null>(null);
-  const [chatOpen, setChatOpen] = useState(false);
   const [dossier, setDossier] = useState<Candidate | null>(null);
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
-  const mapRef = useRef<HTMLDivElement>(null);
-  const [mapWidth, setMapWidth] = useState(640);
-
-  const loadMe = useCallback(async () => {
-    const payload = await fetch("/api/me", { cache: "no-store" }).then((response) => response.json());
-    setMe(payload);
-    if (payload.state && UF_MAP[payload.state]) setSelectedState(payload.state);
-    return payload as MePayload;
-  }, []);
-
-  useEffect(() => {
-    const timeout = window.setTimeout(() => void loadMe(), 0);
-    return () => window.clearTimeout(timeout);
-  }, [loadMe]);
+  const [candidateLoadStatus, setCandidateLoadStatus] = useState<Record<string, "loading" | "error">>({});
+  const candidateRequests = useRef(new Set<string>());
 
   const loadCandidates = useCallback(async (targetOffice: OfficeId, uf?: string) => {
-    const stateParam = targetOffice === "presidente" ? "" : "&state=" + (uf ?? selectedState);
-    const key = targetOffice + ":" + (targetOffice === "presidente" ? "BR" : uf ?? selectedState);
-    if (candidateCache[key]) return;
-    const payload = await fetch("/api/candidates?office=" + targetOffice + stateParam).then((response) => response.json());
-    setCandidateCache((current) => ({ ...current, [key]: payload.candidates ?? [] }));
+    const state = targetOffice === "presidente" ? "BR" : uf ?? selectedState;
+    const key = `${targetOffice}:${state}`;
+    if (candidateCache[key] || candidateRequests.current.has(key)) return;
+    candidateRequests.current.add(key);
+    setCandidateLoadStatus((current) => ({ ...current, [key]: "loading" }));
+    try {
+      const response = await fetch(assetUrl(`/candidate-data/${targetOffice}/${state}.json`));
+      if (!response.ok) throw new Error("Candidate data request failed");
+      const candidates = await response.json();
+      if (!Array.isArray(candidates)) throw new Error("Candidate data is invalid");
+      setCandidateCache((current) => ({ ...current, [key]: candidates }));
+      setCandidateLoadStatus((current) => {
+        const next = { ...current };
+        delete next[key];
+        return next;
+      });
+    } catch {
+      setCandidateLoadStatus((current) => ({ ...current, [key]: "error" }));
+    } finally {
+      candidateRequests.current.delete(key);
+    }
   }, [candidateCache, selectedState]);
 
   useEffect(() => {
@@ -63,131 +57,31 @@ export function HomeClient() {
   useEffect(() => {
     if (!choiceOpen) return;
     const timeout = window.setTimeout(() => {
-      for (const choice of me?.choices ?? []) void loadCandidates(choice.office, choice.state);
+      OFFICES_ORDER.forEach((item) => {
+        if (item !== "presidente") void loadCandidates(item, selectedState);
+      });
     }, 0);
     return () => window.clearTimeout(timeout);
-  }, [choiceOpen, loadCandidates, me?.choices]);
-
-  useEffect(() => {
-    const node = mapRef.current;
-    if (!node) return;
-    const observer = new ResizeObserver(([entry]) => {
-      if (entry) setMapWidth(entry.contentRect.width);
-    });
-    observer.observe(node);
-    return () => observer.disconnect();
-  }, []);
+  }, [choiceOpen, loadCandidates, selectedState]);
 
   const stateOffice = isStateOffice(office);
-  const activeUf = tip?.uf ?? pinnedUf ?? (stateOffice ? selectedState : null);
-  const candidateKey = office + ":" + (stateOffice ? selectedState : "BR");
+  const activeUf = hoverUf ?? pinnedUf ?? (stateOffice ? selectedState : null);
+  const candidateKey = `${office}:${stateOffice ? selectedState : "BR"}`;
   const visibleCandidates = candidateCache[candidateKey] ?? [];
-  const accountState = me?.state ?? null;
-  const currentChoice = me?.choices.find(
-    (choice) => choice.office === office && choice.stateKey === voteScope(office, accountState ?? selectedState),
-  );
-  const selectedCandidateId = guestMode && !me?.loggedIn
-    ? guestChoices[office]?.id
-    : currentChoice?.candidateId;
-  const otherState = Boolean(me?.loggedIn && accountState && stateOffice && selectedState !== accountState);
-
-  function handleHover(uf: string | null, pos?: MapHoverPos) {
-    if (!uf) {
-      setTip(null);
-      return;
-    }
-    setTip({ uf, x: pos?.x ?? 0, y: pos?.y ?? 0 });
-  }
-
-  function openBallot() {
-    if (!me?.loggedIn) {
-      setChoiceOpen(true);
-      return;
-    }
-    if (!me.state) {
-      setPendingCandidate(null);
-      setStateGateOpen(true);
-      return;
-    }
-    setChoiceOpen(true);
-  }
-
-  async function saveCandidate(candidate: Candidate, current = me) {
-    if (!current?.loggedIn) {
-      if (guestMode) {
-        setGuestChoices((choices) => ({ ...choices, [office]: candidate }));
-        setDossier(null);
-        setChoiceOpen(true);
-        return;
-      }
-      setPendingCandidate(candidate);
-      setDossier(null);
-      setChoiceOpen(true);
-      return;
-    }
-    if (!current.state) {
-      setPendingCandidate(candidate);
-      setStateGateOpen(true);
-      return;
-    }
-    if (isStateOffice(office) && candidate.state && candidate.state !== current.state) return;
-
-    setSaving(true);
-    setSaveError(null);
-    try {
-      const response = await fetch("/api/choice", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ office, candidateId: candidate.id }),
-      });
-      const payload = await response.json();
-      if (!response.ok) {
-        setSaveError(payload.error ?? "Não foi possível guardar.");
-        return;
-      }
-      await loadMe();
-    } catch {
-      setSaveError("Falha de conexão. Tente de novo.");
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  const tipWidth = 148;
-  const tipLeft = tip ? Math.min(Math.max(8, tip.x + 14), Math.max(8, mapWidth - tipWidth - 8)) : 0;
-  const tipTop = tip ? Math.max(8, tip.y - 12) : 0;
-  const saveHint = !me?.loggedIn
-    ? guestMode ? "Modo convidado: esta escolha não ficará salva." : "Entre com o X para salvar, ou abra sua cédula e continue como convidado."
-    : otherState
-      ? `Sua cédula está em ${UF_MAP[accountState ?? ""]?.name ?? accountState}. Este estado é só consulta.`
-      : saveError;
-
-  const savedChoicesByOffice = Object.fromEntries(
-    (me?.choices ?? []).map((choice) => {
-      const key = choice.office + ":" + (choice.office === "presidente" ? "BR" : choice.state);
-      return [choice.office, candidateCache[key]?.find((candidate) => candidate.id === choice.candidateId)];
-    }),
-  ) as Partial<Record<OfficeId, Candidate | undefined>>;
-  const choicesByOffice = !me?.loggedIn && guestMode
-    ? { ...savedChoicesByOffice, ...guestChoices }
-    : savedChoicesByOffice;
-  const emptyMe: MePayload = me ?? { loggedIn: false, choices: [] };
 
   return (
     <div className="flex min-h-full flex-col bg-white">
       <Header
-        me={me}
         office={office}
         onOffice={(id) => {
           if (!(id in OFFICES)) return;
           setOffice(id as OfficeId);
           setPinnedUf(null);
-          setTip(null);
+          setHoverUf(null);
           setDossier(null);
           setChoiceOpen(false);
         }}
-        onBallot={openBallot}
-        onOpinion={() => setChatOpen(true)}
+        onBallot={() => setChoiceOpen(true)}
       />
 
       <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-10 lg:py-8">
@@ -197,154 +91,73 @@ export function HomeClient() {
               {"Candidatos a " + OFFICES[office].label.toLowerCase()}
             </h1>
             <p className="mt-1 text-sm text-neutral-500">
-              Toque no estado para ver os candidatos. Sua escolha fica só na sua conta.
+              Explore os candidatos. Suas escolhas são temporárias e ficam apenas nesta página.
             </p>
           </div>
-
-          <div ref={mapRef} className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
+          <div className="relative mx-auto w-full lg:mx-auto lg:w-1/2">
             <BrazilMap
               activeUf={activeUf}
-              onHover={handleHover}
+              onHover={(uf) => setHoverUf(uf)}
               onSelect={(uf) => {
                 if (stateOffice) setSelectedState(uf);
                 setPinnedUf((current) => (current === uf ? null : uf));
-                setTip(null);
+                setHoverUf(null);
               }}
             />
-            {tip && UF_MAP[tip.uf] ? (
-              <div
-                className="pointer-events-none absolute z-20 hidden w-[148px] lg:block"
-                style={{ left: tipLeft, top: tipTop }}
-              >
-                <StatePanel uf={tip.uf} mini />
-              </div>
-            ) : null}
           </div>
-
           {pinnedUf ? (
-            <div className="mt-4 lg:hidden">
-              <StatePanel uf={pinnedUf} onClose={() => setPinnedUf(null)} />
-            </div>
-          ) : (
-            <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para selecionar</p>
-          )}
+            <div className="mt-4 lg:hidden"><StatePanel uf={pinnedUf} onClose={() => setPinnedUf(null)} /></div>
+          ) : <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para selecionar</p>}
         </section>
 
         <aside className="w-full shrink-0 lg:w-[520px]">
-          <div className="rounded-3xl border border-neutral-200 bg-white p-5 lg:sticky lg:top-24">
-            <div className="mb-5">
-              <p className="text-xs font-semibold uppercase tracking-wider text-neutral-400">
+          <div className="rounded-3xl border border-neutral-200 bg-white p-3 sm:p-4 lg:sticky lg:top-24">
+            <div className="mb-3">
+              <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">
                 {stateOffice ? UF_MAP[selectedState]?.name ?? selectedState : "Brasil"}
               </p>
-              <h2 className="text-lg font-semibold text-neutral-950">{OFFICES[office].plural}</h2>
+              <h2 className="text-base font-semibold text-neutral-950">{OFFICES[office].plural}</h2>
             </div>
-
             {stateOffice ? (
-              <label className="mb-4 block">
-                <span className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-neutral-400">Estado</span>
-                <select
-                  value={selectedState}
-                  onChange={(event) => {
-                    setSelectedState(event.target.value);
-                    setPinnedUf(null);
-                    setTip(null);
-                  }}
-                  className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2.5 text-sm text-neutral-950 outline-none focus:border-neutral-400"
-                >
-                  {Object.values(UF_MAP).map((state) => (
-                    <option key={state.uf} value={state.uf}>
-                      {state.name} ({state.uf})
-                    </option>
-                  ))}
+              <label className="mb-2 block">
+                <span className="sr-only">Estado</span>
+                <select value={selectedState} onChange={(event) => {
+                  setSelectedState(event.target.value); setPinnedUf(null); setHoverUf(null);
+                }} className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400">
+                  {Object.values(UF_MAP).map((state) => <option key={state.uf} value={state.uf}>{state.name} ({state.uf})</option>)}
                 </select>
               </label>
             ) : null}
-
             <CandidateList
               candidates={visibleCandidates}
-              selectedId={otherState ? undefined : selectedCandidateId}
+              office={office}
+              state={selectedState}
+              loading={candidateLoadStatus[candidateKey] === "loading"}
+              loadError={candidateLoadStatus[candidateKey] === "error"}
+              onRetry={() => void loadCandidates(office, selectedState)}
+              selectedId={choices[office]?.id}
               onOpen={setDossier}
             />
-
-            <button
-              type="button"
-              onClick={openBallot}
-              className="mt-6 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800"
-            >
-              {me?.choices.length || Object.keys(guestChoices).length ? "Abrir minha cédula" : "Montar minha cédula"}
+            <button type="button" onClick={() => setChoiceOpen(true)} className="mt-3 w-full rounded-full bg-neutral-950 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800">
+              Ver escolhas temporárias
             </button>
-            <p className="mt-3 text-center text-xs leading-relaxed text-neutral-400">
-              Consulta de candidatos. A cédula é pessoal e não vira placar.
-            </p>
           </div>
         </aside>
       </main>
 
       <footer className="border-t border-neutral-100 px-4 py-6 text-center text-xs text-neutral-400">
-        meuvoto.org · patrimônio e dados eleitorais com fontes do TSE
+        meuvoto.org · dados de candidaturas publicados pelo TSE
       </footer>
 
-      {dossier ? (
-        <CandidateDossier
-          candidate={dossier}
-          office={office}
-          state={accountState ?? selectedState}
-          saved={!otherState && selectedCandidateId === dossier.id}
-          canSave={!otherState}
-          saveHint={saveHint}
-          saving={saving}
-          onClose={() => setDossier(null)}
-          onSave={() => void saveCandidate(dossier)}
-        />
-      ) : null}
-
-      {choiceOpen ? (
-        <ChoiceModal
-          me={emptyMe}
-          candidatesByOffice={choicesByOffice}
-          guestMode={guestMode && !me?.loggedIn}
-          onGuestMode={() => {
-            setGuestMode(true);
-            if (pendingCandidate) {
-              setGuestChoices((choices) => ({ ...choices, [office]: pendingCandidate }));
-              setPendingCandidate(null);
-            }
-          }}
-          onLogin={() => void signIn("twitter")}
-          onClose={() => {
-            setChoiceOpen(false);
-            setPendingCandidate(null);
-          }}
-          onOffice={(target) => {
-            setOffice(target);
-            setChoiceOpen(false);
-            setPendingCandidate(null);
-            if (accountState) setSelectedState(accountState);
-          }}
-        />
-      ) : null}
-
-      <StateGateModal
-        open={stateGateOpen}
-        onClose={() => {
-          setStateGateOpen(false);
-          setPendingCandidate(null);
-        }}
-        onSaved={(state) => {
-          setSelectedState(state);
-          setMe((current) => (current ? { ...current, state } : current));
-          setStateGateOpen(false);
-          const candidate = pendingCandidate;
-          setPendingCandidate(null);
-          if (candidate) {
-            void saveCandidate(candidate, me ? { ...me, state } : me);
-          } else {
-            setChoiceOpen(true);
-          }
-        }}
-      />
-
-      <OpinionChat open={chatOpen} me={me} onClose={() => setChatOpen(false)} />
+      {dossier ? <CandidateDossier candidate={dossier} office={office} state={selectedState} onClose={() => setDossier(null)} onChoose={() => {
+        setChoices((current) => ({ ...current, [office]: dossier }));
+        setDossier(null);
+      }} /> : null}
+      {choiceOpen ? <ChoiceModal choices={choices} onClose={() => setChoiceOpen(false)} onOffice={(target) => {
+        setOffice(target); setChoiceOpen(false); setDossier(null);
+      }} onClear={(target) => setChoices((current) => {
+        const next = { ...current }; delete next[target]; return next;
+      })} /> : null}
     </div>
   );
 }

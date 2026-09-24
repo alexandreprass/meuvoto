@@ -1,0 +1,40 @@
+Party logo files are stored locally so they are available in the candidate list and
+the generated ballot image. Source pages and credited party names:
+
+avante.svg — https://commons.wikimedia.org/wiki/File:Avante_70_(Brasil)_logo.svg — Avante
+cidadania.svg — https://commons.wikimedia.org/wiki/File:Cidadania_(Brasil)_logo.svg — Cidadania
+agir.svg — https://commons.wikimedia.org/wiki/File:Logotipo_do_partido_Agir.svg — Agir
+dc.png — https://commons.wikimedia.org/wiki/File:Bandeira-democracia-crist%C3%A3.png — Democracia Cristã
+democrata.svg — https://commons.wikimedia.org/wiki/File:Democratas_(Brazil)_logo_(2018-2022)_(horizontal).svg — Democratas
+mdb.svg — https://commons.wikimedia.org/wiki/File:Movimento_Democr%C3%A1tico_Brasileiro_(2017).svg — MDB
+missao.png — Logo fornecido pelo responsável pelo site — Missão
+novo.svg — https://commons.wikimedia.org/wiki/File:Partido_Novo_logo_(2023).svg — Partido Novo
+pcdob.svg — https://commons.wikimedia.org/wiki/File:PCdoB_logo.svg — PCdoB
+pco.svg — https://commons.wikimedia.org/wiki/File:Logo_PCO_Institucional.svg — PCO
+pdt.svg — https://commons.wikimedia.org/wiki/File:Logo_of_the_Democratic_Labour_Party_(Brazil).svg — PDT
+pl.svg — https://commons.wikimedia.org/wiki/File:Liberal_Party_(Brazil)_logo_(2022).svg — Partido Liberal
+pode.png — https://pt.wikipedia.org/wiki/Podemos_(Brasil) — Podemos
+pp.svg — https://commons.wikimedia.org/wiki/File:Progressistas_(Brazil)_logo.svg — Progressistas
+prdt.svg — https://commons.wikimedia.org/wiki/File:Partido_Renova%C3%A7%C3%A3o_Democr%C3%A1tica_logo.svg — PRD
+psb.svg — https://commons.wikimedia.org/wiki/File:Logo_of_the_Brazilian_Socialist_Party_(wordmark_color).svg — PSB
+psd.svg — https://commons.wikimedia.org/wiki/File:PSD_Brazil_logo.svg — PSD
+psdb.svg — https://commons.wikimedia.org/wiki/File:Logo_of_the_Brazilian_Social_Democracy_Party_(2023).svg — PSDB
+psol.svg — https://commons.wikimedia.org/wiki/File:Logo_PSOL_roxo.svg — PSOL
+pt.svg — https://commons.wikimedia.org/wiki/File:PT_(Brazil)_logo_2021.svg — PT
+rede.svg — https://commons.wikimedia.org/wiki/File:Rede_Sustentabilidade_logo.svg — Rede Sustentabilidade
+republicanos.svg — https://commons.wikimedia.org/wiki/File:Republicanos_(Brazil)_wordmark.svg — Republicanos
+up.svg — https://commons.wikimedia.org/wiki/File:Unidade_Popular_logo.svg — Unidade Popular
+solidariedade.svg — https://commons.wikimedia.org/wiki/File:Solidariedade_77_(Brasil)_logo.svg — Solidariedade
+uniao.svg — https://commons.wikimedia.org/wiki/File:Uni%C3%A3o_Brasil_logo.svg — União Brasil
+prtb.png — https://commons.wikimedia.org/wiki/File:Logomarca_do_Partido_Renovador_Trabalhista_Brasileiro.png — PRTB
+dc.png — https://commons.wikimedia.org/wiki/File:Bandeira-democracia-crist%C3%A3.png — Democracia Cristã
+pstu.png — https://commons.wikimedia.org/wiki/File:Logo_PSTU.png — PSTU
+mobiliza.svg — https://commons.wikimedia.org/wiki/File:Bandeira_Mobiliza.svg — Mobiliza
+pstu.png — https://commons.wikimedia.org/wiki/File:Logo_PSTU.png — PSTU
+pv.png — https://pt.wikipedia.org/wiki/Partido_Verde_(Brasil) — Partido Verde
+pl.png — https://pt.wikipedia.org/wiki/Partido_Liberal_(2006) — Partido Liberal
+novo.png — https://pt.wikipedia.org/wiki/Partido_Novo — Partido Novo
+pcdob.png — https://pt.wikipedia.org/wiki/Partido_Comunista_do_Brasil — PCdoB
+psdb.png — https://pt.wikipedia.org/wiki/Partido_da_Social_Democracia_Brasileira — PSDB
+psol.png — https://pt.wikipedia.org/wiki/Partido_Socialismo_e_Liberdade — PSOL
+pt.png — https://pt.wikipedia.org/wiki/Partido_dos_Trabalhadores — PT

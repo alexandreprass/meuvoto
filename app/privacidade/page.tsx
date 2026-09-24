@@ -9,16 +9,18 @@ export default function PrivacidadePage() {
       <h1 className="mt-6 text-3xl font-semibold">Privacidade</h1>
       <div className="mt-6 space-y-4 text-sm leading-relaxed text-neutral-600">
         <p>
-          Ao entrar com o X, usamos o identificador, o nome e o @ da conta para
-          devolver a sua cédula quando você voltar.
+          Este site não pede login e não registra escolhas de candidatos. As
+          escolhas feitas na página existem somente na memória do navegador e
+          desaparecem quando a página é fechada ou atualizada.
         </p>
         <p>
-          Não pedimos senha do X. Não vendemos dados. A escolha de cada pessoa
-          não entra em placar.
+          Não há sistema de mensagens, perfil de usuário ou placar de votos.
+          Dados técnicos básicos podem ser tratados pela plataforma que hospeda
+          o site para entregar as páginas e arquivos públicos.
         </p>
         <p>
-          Você pode sair da conta a qualquer momento. Para apagar sua cédula,
-          fale com o operador do site.
+          As informações eleitorais apresentadas são dados públicos de
+          candidaturas; a ficha detalhada é consultada diretamente no site do TSE.
         </p>
       </div>
     </main>

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, type MouseEvent } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection, Geometry } from "geojson";
 import { IBGE_TO_UF, UF_MAP } from "@/lib/states";
+import { assetUrl } from "@/lib/asset-url";
 
 type GeoProps = { codarea?: string };
 type BrazilFeature = Feature<Geometry, GeoProps>;
@@ -33,7 +34,7 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
   const [geo, setGeo] = useState<BrazilCollection | null>(null);
 
   useEffect(() => {
-    fetch("/brazil-states.geojson")
+    fetch(assetUrl("/brazil-states.geojson"))
       .then((r) => r.json())
       .then(setGeo)
       .catch(() => setGeo(null));
@@ -103,14 +104,13 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
             strokeWidth={active ? 1.1 : 0.6}
             strokeLinejoin="round"
             className="cursor-pointer outline-none"
+            aria-label={state.name}
             style={{ outline: "none" }}
             onMouseDown={(e) => e.preventDefault()}
             onMouseEnter={(e) => onHover(state.uf, localPos(e))}
             onMouseMove={(e) => onHover(state.uf, localPos(e))}
             onClick={() => onSelect(state.uf)}
-          >
-            <title>{state.name}</title>
-          </path>
+          />
         );
       })}
     </svg>

@@ -1,16 +1,22 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { Candidate } from "@/lib/offices";
+import type { Candidate, OfficeId } from "@/lib/offices";
 import { PartyBadge } from "./PartyBadge";
+import { assetUrl } from "@/lib/asset-url";
 
 type Props = {
   candidates: Candidate[];
+  office: OfficeId;
+  state: string;
+  loading?: boolean;
+  loadError?: boolean;
+  onRetry?: () => void;
   selectedId?: string;
   onOpen: (candidate: Candidate) => void;
 };
 
-export function CandidateList({ candidates, selectedId, onOpen }: Props) {
+export function CandidateList({ candidates, office, state, loading, loadError, onRetry, selectedId, onOpen }: Props) {
   const [query, setQuery] = useState("");
   const ordered = useMemo(
     () =>
@@ -28,13 +34,24 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
       value.toLocaleLowerCase("pt-BR").includes(term),
     );
   });
-  const visible = filtered.slice(0, 80);
+  const visible = filtered;
 
   if (candidates.length === 0) {
     return (
-      <p className="rounded-2xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-400">
-        Nenhum candidato carregado para este estado.
-      </p>
+      <div className="rounded-2xl border border-dashed border-neutral-200 px-4 py-6 text-center text-sm text-neutral-500">
+        {loading ? (
+          <p>Carregando candidatos...</p>
+        ) : loadError ? (
+          <div>
+            <p>Não foi possível carregar os candidatos.</p>
+            <button type="button" onClick={onRetry} className="mt-2 font-semibold text-emerald-800 underline">
+              Tentar novamente
+            </button>
+          </div>
+        ) : (
+          <p>Nenhum candidato carregado para este estado.</p>
+        )}
+      </div>
     );
   }
 
@@ -46,15 +63,16 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           placeholder="Buscar por nome, partido ou número"
-          className="mb-3 w-full rounded-xl border border-neutral-200 px-3 py-2.5 text-sm outline-none focus:border-neutral-400"
+          className="mb-2 w-full rounded-xl border border-neutral-200 px-3 py-1.5 text-xs outline-none focus:border-neutral-400"
         />
       ) : null}
-      <ul className="flex max-h-[62vh] flex-col gap-2 overflow-y-auto pr-1">
+      <ul className="flex max-h-[62vh] flex-col gap-1.5 overflow-y-auto pr-1">
         {visible.map((candidate) => {
           const selected = candidate.id === selectedId;
           return (
             <li
-              className={`flex items-center gap-4 rounded-2xl border border-black p-3.5 shadow-sm ${
+              key={candidate.id}
+              className={`flex items-center gap-2.5 rounded-xl border border-black p-2 shadow-sm ${
                 selected ? "bg-emerald-50" : "bg-white"
               }`}
             >
@@ -66,32 +84,33 @@ export function CandidateList({ candidates, selectedId, onOpen }: Props) {
               >
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={candidate.photo}
+                  src={candidate.photo.startsWith("/") ? assetUrl(candidate.photo) : candidate.photo}
                   alt=""
+                  loading="lazy"
+                  decoding="async"
+                  referrerPolicy="no-referrer"
                   onError={(event) => {
                     event.currentTarget.onerror = null;
-                    event.currentTarget.src = candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg";
+                    event.currentTarget.src = assetUrl(candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg");
                   }}
-                  className="h-16 w-16 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
+                  className="h-12 w-12 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
                 />
               </button>
               <button type="button" onClick={() => onOpen(candidate)} className="min-w-0 flex-1 text-left">
-                <span className="block truncate text-base font-semibold text-neutral-950">{candidate.name}</span>
-                <span className="mt-0.5 block text-xs uppercase tracking-wide text-neutral-500">
-                  {candidate.party} · {candidate.number}
+                <span className="block truncate text-sm font-semibold text-neutral-950">{candidate.name}</span>
+                <span className="mt-0.5 block truncate text-[10px] uppercase tracking-wide text-neutral-500">
+                  {candidate.party}
                 </span>
               </button>
-              <PartyBadge party={candidate.party} size={38} />
+              <span className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-lg font-extrabold tabular-nums tracking-wide text-emerald-900 ring-1 ring-emerald-200 sm:text-xl">
+                {candidate.number}
+              </span>
+              <PartyBadge party={candidate.party} size={30} />
               {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );
         })}
       </ul>
-      {filtered.length > visible.length ? (
-        <p className="mt-2 text-center text-xs text-neutral-400">
-          Mostrando 80 de {filtered.length}. Refine a busca.
-        </p>
-      ) : null}
     </div>
   );
 }

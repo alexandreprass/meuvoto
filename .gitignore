@@ -16,6 +16,8 @@
 # next.js
 /.next/
 /out/
+/public/candidate-data/
+/.npm-cache/
 
 # production
 /build
