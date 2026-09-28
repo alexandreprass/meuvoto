@@ -9,7 +9,7 @@
     "dev": "next dev",
     "predev": "node scripts/prepare-static-candidates.js",
     "build": "next build",
-    "prebuild": "node scripts/prepare-static-candidates.js",
+    "prebuild": "node scripts/prepare-static-candidates.js && node scripts/prepare-static-photos.js",
     "lint": "eslint",
     "import:candidates": "node scripts/import-tse-senators.js"
   },
