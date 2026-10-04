@@ -133,6 +133,13 @@ export function ApuracaoClient() {
   const rows = shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
   const ptPct = shown && shown.valid > 0 ? (shown.pt / shown.valid) * 100 : 0;
   const plPct = shown && shown.valid > 0 ? (shown.pl / shown.valid) * 100 : 0;
+  const [voteSpin, setVoteSpin] = useState({ key: "", n: 0, uf: "" });
+  if (office === "presidente" && shown) {
+    const key = `${shown.pt}|${shown.pl}|${shown.valid}|${shown.sectionsDone}|${shown.generated}`;
+    if (voteSpin.uf !== shown.uf) setVoteSpin({ key, n: 0, uf: shown.uf });
+    else if (voteSpin.key !== key) setVoteSpin({ key, n: voteSpin.n + 1, uf: shown.uf });
+  }
+  const spinTurn = office === "presidente" ? voteSpin.n : 0;
 
   return (
     <div className="flex min-h-full flex-col bg-white">
@@ -207,18 +214,20 @@ export function ApuracaoClient() {
 
             {error ? <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
 
-            <div className="mb-3 grid grid-cols-2 gap-2">
-              <div className="rounded-2xl bg-red-600 px-3 py-3 text-white">
-                <p className="text-xs font-semibold">{office === "presidente" ? "LULA" : "PT"}</p>
-                <p className="text-2xl font-semibold tracking-tight">{formatPercent(ptPct)}%</p>
-                <p className="text-xs text-red-100">{formatVotes(shown?.pt ?? 0)} votos</p>
+            {office === "presidente" ? (
+              <div className="mb-3 grid grid-cols-2 gap-2">
+                <div key={`lula-${spinTurn}`} className={`rounded-2xl bg-red-600 px-3 py-3 text-white ${spinTurn > 0 ? "vote-spin" : ""}`}>
+                  <p className="text-xs font-semibold">LULA</p>
+                  <p className="text-2xl font-semibold tracking-tight">{formatPercent(ptPct)}%</p>
+                  <p className="text-xs text-red-100">{formatVotes(shown?.pt ?? 0)} votos</p>
+                </div>
+                <div key={`flavio-${spinTurn}`} className={`rounded-2xl bg-green-700 px-3 py-3 text-white ${spinTurn > 0 ? "vote-spin" : ""}`}>
+                  <p className="text-xs font-semibold">FLAVIO BOLSONARO</p>
+                  <p className="text-2xl font-semibold tracking-tight">{formatPercent(plPct)}%</p>
+                  <p className="text-xs text-green-100">{formatVotes(shown?.pl ?? 0)} votos</p>
+                </div>
               </div>
-              <div className="rounded-2xl bg-green-700 px-3 py-3 text-white">
-                <p className="text-xs font-semibold">{office === "presidente" ? "FLAVIO BOLSONARO" : "PL"}</p>
-                <p className="text-2xl font-semibold tracking-tight">{formatPercent(plPct)}%</p>
-                <p className="text-xs text-green-100">{formatVotes(shown?.pl ?? 0)} votos</p>
-              </div>
-            </div>
+            ) : null}
 
             <p className="mb-3 text-xs text-neutral-500">
               {shown ? `${formatPercent(shown.sectionsPct)}% das seções` : "—"}
