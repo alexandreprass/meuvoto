@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { OFFICES_ORDER, type OfficeId } from "@/lib/offices";
+import { ApuracaoButton } from "./ApuracaoButton";
 
 const LABELS: Record<OfficeId, string> = {
   presidente: "Presidente",
@@ -28,14 +29,14 @@ export function Header({ office, onOffice, onBallot }: Props) {
                 <path d="m5 13.5 5 5L20 7" stroke="#22c55e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <span className="text-lg font-semibold tracking-tight text-neutral-950">meu<span className="text-emerald-600">voto</span><span className="text-neutral-400">.org</span></span>
+            <span className="text-lg font-semibold tracking-tight text-neutral-950">meu<span className="text-emerald-600">voto</span><span className="text-neutral-400">.digital</span></span>
           </Link>
           <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full bg-neutral-100 p-1 md:flex">
             {OFFICES_ORDER.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition ${office === id ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>{LABELS[id]}</button>)}
           </nav>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <Link href="/apuracao" target="_blank" rel="noopener noreferrer" className="rounded-full bg-red-600 px-3 py-2 text-center text-[11px] font-bold tracking-wide text-white hover:bg-red-700 sm:text-xs">APURAÇÃO EM TEMPO REAL</Link>
+          <ApuracaoButton />
           <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
         </div>
       </div>

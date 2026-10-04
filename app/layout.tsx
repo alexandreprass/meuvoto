@@ -8,14 +8,14 @@ const geistSans = Geist({
 });
 
 export const metadata: Metadata = {
-  title: "meuvoto.org — candidatos e ficha eleitoral",
+  title: "meuvoto.digital — candidatos e ficha eleitoral",
   description: "Explore candidaturas e consulte informações oficiais publicadas pelo TSE.",
-  metadataBase: new URL("https://meuvoto.org"),
+  metadataBase: new URL("https://meuvoto.digital"),
   openGraph: {
-    title: "meuvoto.org",
+    title: "meuvoto.digital",
     description: "Candidatos e informações eleitorais oficiais do TSE.",
-    url: "https://meuvoto.org",
-    siteName: "meuvoto.org",
+    url: "https://meuvoto.digital",
+    siteName: "meuvoto.digital",
     locale: "pt_BR",
     type: "website",
   },

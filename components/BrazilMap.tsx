@@ -105,8 +105,8 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
             fill={painted ? fills?.[state.uf] ?? "#ffffff" : state.color}
             fillOpacity={painted || active ? 1 : 0.9}
             fillRule="evenodd"
-            stroke={active ? "#111111" : painted ? "#d4d4d4" : "#ffffff"}
-            strokeWidth={active ? 1.1 : 0.6}
+            stroke={painted || active ? "#111111" : "#ffffff"}
+            strokeWidth={painted ? (active ? 1.8 : 1.15) : active ? 1.1 : 0.6}
             strokeLinejoin="round"
             className="cursor-pointer outline-none"
             aria-label={state.name}
@@ -128,12 +128,12 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
             const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
             const boxW = x1 - x0;
             const boxH = y1 - y0;
-            if (boxW < 78 || boxH < 46) return null;
-            const size = boxW > 130 ? 13 : 11;
+            const size = Math.min(boxW > 170 ? 12 : 8, boxW / (stamp.bottom.length * 0.58));
+            if (boxW < 92 || boxH < 36 || size < 5.5) return null;
             return (
-              <text key={`stamp-${uf}`} x={x} y={y} textAnchor="middle" fontSize={size} fontWeight={700} fill={stamp.ink} pointerEvents="none">
-                <tspan x={x} dy="-0.35em">{stamp.top}</tspan>
-                <tspan x={x} dy="1.2em">{stamp.bottom}</tspan>
+              <text key={`stamp-${uf}`} x={x} y={y} textAnchor="middle" fontWeight={700} fill={stamp.ink} pointerEvents="none">
+                <tspan x={x} dy="-0.45em" fontSize={size}>{stamp.top}</tspan>
+                <tspan x={x} dy="1.25em" fontSize={size}>{stamp.bottom}</tspan>
               </text>
             );
           })

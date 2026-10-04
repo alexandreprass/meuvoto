@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { ApuracaoBadge } from "./ApuracaoButton";
 import { BrazilMap, type MapStamp } from "./BrazilMap";
 import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { STATES, UF_MAP, formatPercent, formatVotes } from "@/lib/states";
@@ -48,8 +49,8 @@ export function ApuracaoClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selected, setSelected] = useState<string>("BR");
   const [hover, setHover] = useState<{ uf: string; x: number; y: number } | null>(null);
+  const [presidentByUf, setPresidentByUf] = useState<Record<string, Tally>>({});
   const [byUf, setByUf] = useState<Record<string, Tally>>({});
-  const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState("");
   const [clock, setClock] = useState("");
 
@@ -57,38 +58,50 @@ export function ApuracaoClient() {
     let stopped = false;
     let running = false;
     const proportional = isProportional(office);
+    const jobs = [
+      ...STATES.map((state) => ({ bucket: "president" as const, uf: state.uf, office: "presidente" as const })),
+      { bucket: "president" as const, uf: "BR", office: "presidente" as const },
+      ...(office === "presidente"
+        ? []
+        : STATES.map((state) => ({ bucket: "office" as const, uf: state.uf, office }))),
+    ];
 
     async function tick() {
       if (running) return;
       running = true;
-      const targets = [...STATES.map((state) => state.uf), ...(office === "presidente" ? ["BR"] : [])];
       try {
         const pairs = await Promise.all(
-          targets.map(async (uf) => {
+          jobs.map(async (job) => {
             try {
-              const response = await fetch(resultUrl(office, uf), { cache: "no-store" });
+              const response = await fetch(resultUrl(job.office, job.uf), { cache: "no-store" });
               if (!response.ok) return null;
-              return [uf, parseResult(await response.json(), uf, proportional)] as const;
+              return [job, parseResult(await response.json(), job.uf, job.bucket === "president" ? false : proportional)] as const;
             } catch {
               return null;
             }
           }),
         );
         if (stopped) return;
-        const ready = pairs.filter((pair): pair is readonly [string, Tally] => pair !== null);
+        const ready = pairs.filter((pair): pair is readonly [(typeof jobs)[number], Tally] => pair !== null);
         if (ready.length === 0) throw new Error("empty");
-        setByUf((current) => {
+        setPresidentByUf((current) => {
           const next = { ...current };
-          for (const [uf, tally] of ready) next[uf] = tally;
+          for (const [job, tally] of ready) if (job.bucket === "president") next[job.uf] = tally;
           return next;
         });
-        setError(ready.length === targets.length ? "" : "Parte dos estados não atualizou nesta leitura.");
+        if (office !== "presidente") {
+          setByUf((current) => {
+            const next = { ...current };
+            for (const [job, tally] of ready) if (job.bucket === "office") next[job.uf] = tally;
+            return next;
+          });
+        }
+        setError(ready.length === jobs.length ? "" : "Parte dos estados não atualizou nesta leitura.");
         setClock(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
       } catch {
         if (!stopped) setError("Não foi possível atualizar os dados do TSE agora.");
       } finally {
         running = false;
-        if (!stopped) setLoaded(true);
       }
     }
 
@@ -100,38 +113,39 @@ export function ApuracaoClient() {
     };
   }, [office]);
 
+  const panelByUf = office === "presidente" ? presidentByUf : byUf;
   const stateRows = useMemo(
-    () => STATES.map((state) => byUf[state.uf]).filter((row): row is Tally => Boolean(row)),
-    [byUf],
+    () => STATES.map((state) => panelByUf[state.uf]).filter((row): row is Tally => Boolean(row)),
+    [panelByUf],
   );
 
   const shown = useMemo(() => {
-    if (selected !== "BR") return byUf[selected] ?? null;
-    if (office === "presidente") return byUf.BR ?? null;
+    if (selected !== "BR") return panelByUf[selected] ?? null;
+    if (office === "presidente") return panelByUf.BR ?? null;
     if (stateRows.length === 0) return null;
     return combineTallies(stateRows, "BR");
-  }, [byUf, office, selected, stateRows]);
+  }, [office, panelByUf, selected, stateRows]);
 
   const { fills, stamps } = useMemo(() => {
     const nextFills: Record<string, string> = {};
     const nextStamps: Record<string, MapStamp> = {};
     for (const state of STATES) {
-      const row = byUf[state.uf];
+      const row = presidentByUf[state.uf];
       const visual = leadVisual(row?.pt ?? 0, row?.pl ?? 0);
       nextFills[state.uf] = visual.fill;
       const valid = row?.valid ?? 0;
       nextStamps[state.uf] = {
-        top: formatMapShare("PT", valid > 0 ? ((row?.pt ?? 0) / valid) * 100 : 0),
-        bottom: formatMapShare("PL", valid > 0 ? ((row?.pl ?? 0) / valid) * 100 : 0),
+        top: formatMapShare("LULA", valid > 0 ? ((row?.pt ?? 0) / valid) * 100 : 0),
+        bottom: formatMapShare("FLAVIO BOLSONARO", valid > 0 ? ((row?.pl ?? 0) / valid) * 100 : 0),
         ink: visual.ink,
       };
     }
     return { fills: nextFills, stamps: nextStamps };
-  }, [byUf]);
+  }, [presidentByUf]);
 
   const activeUf = hover?.uf ?? (selected !== "BR" ? selected : null);
   const rows = shown && !isProportional(office) && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
-  const hoverRow = hover ? byUf[hover.uf] : undefined;
+  const hoverRow = hover ? panelByUf[hover.uf] : undefined;
   const ptPct = shown && shown.valid > 0 ? (shown.pt / shown.valid) * 100 : 0;
   const plPct = shown && shown.valid > 0 ? (shown.pl / shown.valid) * 100 : 0;
 
@@ -145,10 +159,10 @@ export function ApuracaoClient() {
                 <path d="m5 13.5 5 5L20 7" stroke="#22c55e" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
               </svg>
             </span>
-            <span className="text-lg font-semibold tracking-tight text-neutral-950">meu<span className="text-emerald-600">voto</span><span className="text-neutral-400">.org</span></span>
+            <span className="text-lg font-semibold tracking-tight text-neutral-950">meu<span className="text-emerald-600">voto</span><span className="text-neutral-400">.digital</span></span>
           </Link>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full bg-red-600 px-3 py-2 text-[11px] font-bold tracking-wide text-white sm:text-xs">APURAÇÃO EM TEMPO REAL</span>
+            <ApuracaoBadge />
             <Link href="/" className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">VOLTAR À CÉDULA</Link>
           </div>
         </div>
@@ -158,15 +172,15 @@ export function ApuracaoClient() {
         <section className="relative min-w-0 flex-1">
           <div className="mb-3">
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">Apuração para {OFFICES[office].label.toLowerCase()}</h1>
-            <p className="mt-1 text-sm text-neutral-500">Vermelho quando o PT está na frente, verde quando o PL está na frente. Empate fica branco.</p>
+            <p className="mt-1 text-sm text-neutral-500">O mapa compara Lula e Flávio Bolsonaro. Vermelho quando Lula está na frente, verde quando Flávio Bolsonaro está na frente.</p>
           </div>
           <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
-              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setLoaded(false); setError(""); setHover(null); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setHover(null); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
             ))}
           </div>
           <div className="relative mx-auto w-full lg:w-1/2">
-            {loaded ? (
+            {Object.keys(presidentByUf).length > 0 ? (
               <>
               <BrazilMap
                 activeUf={activeUf}
@@ -197,9 +211,9 @@ export function ApuracaoClient() {
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-neutral-500">
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-red-600" /> PT</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-neutral-300 bg-white" /> Empate</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm bg-green-700" /> PL</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-red-600" /> LULA</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-white" /> Empate</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-green-700" /> FLAVIO BOLSONARO</span>
           </div>
           <p className="mt-2 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para ver os votos</p>
         </section>
@@ -226,12 +240,12 @@ export function ApuracaoClient() {
 
             <div className="mb-3 grid grid-cols-2 gap-2">
               <div className="rounded-2xl bg-red-600 px-3 py-3 text-white">
-                <p className="text-xs font-semibold">PT</p>
+                <p className="text-xs font-semibold">{office === "presidente" ? "LULA" : "PT"}</p>
                 <p className="text-2xl font-semibold tracking-tight">{formatPercent(ptPct)}%</p>
                 <p className="text-xs text-red-100">{formatVotes(shown?.pt ?? 0)} votos</p>
               </div>
               <div className="rounded-2xl bg-green-700 px-3 py-3 text-white">
-                <p className="text-xs font-semibold">PL</p>
+                <p className="text-xs font-semibold">{office === "presidente" ? "FLAVIO BOLSONARO" : "PL"}</p>
                 <p className="text-2xl font-semibold tracking-tight">{formatPercent(plPct)}%</p>
                 <p className="text-xs text-green-100">{formatVotes(shown?.pl ?? 0)} votos</p>
               </div>

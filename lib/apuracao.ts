@@ -199,9 +199,9 @@ export function leadVisual(pt: number, pl: number) {
   };
 }
 
-export function formatMapShare(sigla: "PT" | "PL", pct: number) {
+export function formatMapShare(name: string, pct: number) {
   const text = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(pct);
-  return `${sigla} ${text}%`;
+  return `${name} ${text}%`;
 }
 
 export function andamentoLabel(code: string) {

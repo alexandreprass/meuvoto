@@ -1,4 +1,4 @@
-# meuvoto.org
+# meuvoto.digital
 
 Site estático para explorar candidaturas de 2026 e consultar as fichas oficiais do TSE. Não possui login, mensagens ou armazenamento/envio de votos. As escolhas temporárias existem apenas na memória da página e somem ao fechá-la ou atualizá-la.
 

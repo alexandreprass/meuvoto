@@ -148,7 +148,7 @@ export function HomeClient() {
       </main>
 
       <footer className="border-t border-neutral-100 px-4 py-6 text-center text-xs text-neutral-400">
-        meuvoto.org · dados de candidaturas publicados pelo TSE
+        meuvoto.digital · dados de candidaturas publicados pelo TSE
       </footer>
 
       {dossier ? <CandidateDossier candidate={dossier} office={office} state={selectedState} chosen={(choices[office] ?? []).some((item) => item.id === dossier.id)} seatsFull={(choices[office] ?? []).length >= OFFICE_SEATS[office]} slotIndex={pendingSlot} onClose={() => setDossier(null)} onChoose={() => {
