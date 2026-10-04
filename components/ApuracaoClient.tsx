@@ -8,7 +8,6 @@ import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { STATES, UF_MAP, formatPercent, formatVotes } from "@/lib/states";
 import {
   andamentoLabel,
-  combineTallies,
   formatMapShare,
   isProportional,
   leadVisual,
@@ -114,17 +113,11 @@ export function ApuracaoClient() {
   }, [office]);
 
   const panelByUf = office === "presidente" ? presidentByUf : byUf;
-  const stateRows = useMemo(
-    () => STATES.map((state) => panelByUf[state.uf]).filter((row): row is Tally => Boolean(row)),
-    [panelByUf],
-  );
 
   const shown = useMemo(() => {
-    if (selected !== "BR") return panelByUf[selected] ?? null;
-    if (office === "presidente") return panelByUf.BR ?? null;
-    if (stateRows.length === 0) return null;
-    return combineTallies(stateRows, "BR");
-  }, [office, panelByUf, selected, stateRows]);
+    const uf = office !== "presidente" && selected === "BR" ? "SP" : selected;
+    return panelByUf[uf] ?? null;
+  }, [office, panelByUf, selected]);
 
   const { fills, stamps } = useMemo(() => {
     const nextFills: Record<string, string> = {};
@@ -135,8 +128,8 @@ export function ApuracaoClient() {
       nextFills[state.uf] = visual.fill;
       const valid = row?.valid ?? 0;
       nextStamps[state.uf] = {
-        top: formatMapShare("LULA", valid > 0 ? ((row?.pt ?? 0) / valid) * 100 : 0),
-        bottom: formatMapShare("FLAVIO BOLSONARO", valid > 0 ? ((row?.pl ?? 0) / valid) * 100 : 0),
+        top: formatMapShare("L", valid > 0 ? ((row?.pt ?? 0) / valid) * 100 : 0),
+        bottom: formatMapShare("F", valid > 0 ? ((row?.pl ?? 0) / valid) * 100 : 0),
         ink: visual.ink,
       };
     }
@@ -176,7 +169,7 @@ export function ApuracaoClient() {
           </div>
           <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
-              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setHover(null); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setHover(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
             ))}
           </div>
           <div className="relative mx-auto w-full lg:w-1/2">
@@ -188,17 +181,17 @@ export function ApuracaoClient() {
                 stamps={stamps}
                 onHover={(uf, pos) => setHover(uf && pos ? { uf, x: pos.x, y: pos.y } : null)}
                 onSelect={(uf) => {
-                  setSelected((current) => (current === uf ? "BR" : uf));
+                  setSelected((current) => (current === uf && office === "presidente" ? "BR" : uf));
                   setHover(null);
                 }}
               />
               {hover && hoverRow ? (
-                <div className="pointer-events-none absolute z-10 hidden w-48 rounded-2xl border border-neutral-200 bg-white p-3 text-xs shadow-lg lg:block" style={{ left: hover.x + 12, top: hover.y + 12 }}>
+                <div className="pointer-events-none absolute z-10 hidden max-h-80 w-64 overflow-hidden rounded-2xl border border-neutral-200 bg-white p-3 text-xs shadow-lg lg:block" style={{ left: hover.x + 12, top: hover.y + 12 }}>
                   <p className="mb-1 font-semibold text-neutral-950">{UF_MAP[hover.uf]?.name}</p>
-                  {hoverRow.parties.slice(0, 8).map((party) => (
-                    <p key={party.sigla} className="flex justify-between gap-3 text-neutral-600">
-                      <span>{party.sigla}</span>
-                      <span>{formatPercent(party.pct)}%</span>
+                  {hoverRow.candidates.slice(0, 20).map((candidate) => (
+                    <p key={`${candidate.numero}-${candidate.nome}`} className="flex justify-between gap-2 text-neutral-600">
+                      <span className="min-w-0 truncate">{candidate.nome}</span>
+                      <span className="shrink-0">{formatPercent(candidate.pct)}%</span>
                     </p>
                   ))}
                 </div>
@@ -231,7 +224,7 @@ export function ApuracaoClient() {
             <label className="mb-3 block">
               <span className="sr-only">Estado</span>
               <select value={selected} onChange={(event) => setSelected(event.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400">
-                <option value="BR">Brasil</option>
+                {office === "presidente" ? <option value="BR">Brasil</option> : null}
                 {STATES.map((state) => <option key={state.uf} value={state.uf}>{state.name} ({state.uf})</option>)}
               </select>
             </label>

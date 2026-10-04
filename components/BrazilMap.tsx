@@ -128,8 +128,8 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
             const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
             const boxW = x1 - x0;
             const boxH = y1 - y0;
-            const size = Math.min(boxW > 170 ? 12 : 8, boxW / (stamp.bottom.length * 0.58));
-            if (boxW < 92 || boxH < 36 || size < 5.5) return null;
+            const size = boxW > 110 ? 12 : boxW > 60 ? 9 : 7;
+            if (boxW < 32 || boxH < 22) return null;
             return (
               <text key={`stamp-${uf}`} x={x} y={y} textAnchor="middle" fontWeight={700} fill={stamp.ink} pointerEvents="none">
                 <tspan x={x} dy="-0.45em" fontSize={size}>{stamp.top}</tspan>
