@@ -12,10 +12,14 @@ type BrazilCollection = FeatureCollection<Geometry, GeoProps>;
 
 export type MapHoverPos = { x: number; y: number };
 
+export type MapStamp = { top: string; bottom: string; ink: string };
+
 type Props = {
   activeUf: string | null;
   onHover: (uf: string | null, pos?: MapHoverPos) => void;
   onSelect: (uf: string) => void;
+  fills?: Record<string, string>;
+  stamps?: Record<string, MapStamp>;
 };
 
 function localPos(e: MouseEvent<SVGElement>): MapHoverPos {
@@ -30,7 +34,7 @@ function localPos(e: MouseEvent<SVGElement>): MapHoverPos {
 const WIDTH = 640;
 const HEIGHT = 680;
 
-export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
+export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props) {
   const [geo, setGeo] = useState<BrazilCollection | null>(null);
 
   useEffect(() => {
@@ -72,6 +76,7 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
     if (ub === activeUf) return -1;
     return 0;
   });
+  const painted = Boolean(fills);
 
   return (
     <svg
@@ -97,10 +102,10 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
           <path
             key={`${state.uf}-${i}`}
             d={d}
-            fill={state.color}
-            fillOpacity={active ? 1 : 0.9}
+            fill={painted ? fills?.[state.uf] ?? "#ffffff" : state.color}
+            fillOpacity={painted || active ? 1 : 0.9}
             fillRule="evenodd"
-            stroke={active ? "#111111" : "#ffffff"}
+            stroke={active ? "#111111" : painted ? "#d4d4d4" : "#ffffff"}
             strokeWidth={active ? 1.1 : 0.6}
             strokeLinejoin="round"
             className="cursor-pointer outline-none"
@@ -113,6 +118,26 @@ export function BrazilMap({ activeUf, onHover, onSelect }: Props) {
           />
         );
       })}
+      {stamps
+        ? ordered.map((feature) => {
+            const uf = IBGE_TO_UF[String(feature.properties?.codarea ?? "")];
+            const stamp = uf ? stamps[uf] : undefined;
+            if (!uf || !stamp) return null;
+            const [x, y] = path.centroid(feature as never);
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+            const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
+            const boxW = x1 - x0;
+            const boxH = y1 - y0;
+            if (boxW < 78 || boxH < 46) return null;
+            const size = boxW > 130 ? 13 : 11;
+            return (
+              <text key={`stamp-${uf}`} x={x} y={y} textAnchor="middle" fontSize={size} fontWeight={700} fill={stamp.ink} pointerEvents="none">
+                <tspan x={x} dy="-0.35em">{stamp.top}</tspan>
+                <tspan x={x} dy="1.2em">{stamp.bottom}</tspan>
+              </text>
+            );
+          })
+        : null}
     </svg>
   );
 }

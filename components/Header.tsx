@@ -34,7 +34,10 @@ export function Header({ office, onOffice, onBallot }: Props) {
             {OFFICES_ORDER.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition ${office === id ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>{LABELS[id]}</button>)}
           </nav>
         </div>
-        <button type="button" onClick={onBallot} className="shrink-0 rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Link href="/apuracao" target="_blank" rel="noopener noreferrer" className="rounded-full bg-red-600 px-3 py-2 text-center text-[11px] font-bold tracking-wide text-white hover:bg-red-700 sm:text-xs">APURAÇÃO EM TEMPO REAL</Link>
+          <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
+        </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden">
         {OFFICES_ORDER.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{LABELS[id]}</button>)}

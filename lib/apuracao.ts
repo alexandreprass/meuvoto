@@ -1,0 +1,212 @@
+import type { OfficeId } from "@/lib/offices";
+
+const TSE_ORIGIN = "https://resultados.tse.jus.br/oficial/ele2026";
+
+const PT_RED = "#DC2626";
+const PL_GREEN = "#15803D";
+
+type FileSpec = { ele: string; cargo: string; proportional: boolean };
+
+const FILE_SPEC: Record<OfficeId, FileSpec> = {
+  presidente: { ele: "6257", cargo: "0001", proportional: false },
+  governador: { ele: "6259", cargo: "0003", proportional: false },
+  senador: { ele: "6259", cargo: "0005", proportional: false },
+  deputado_federal: { ele: "6259", cargo: "0006", proportional: true },
+  deputado_estadual: { ele: "6259", cargo: "0007", proportional: true },
+};
+
+export function isProportional(office: OfficeId) {
+  return FILE_SPEC[office].proportional;
+}
+
+/** Unified result file (EA20). Election code is 6 digits: 6257 → e006257. DF state deputies are cargo 8. */
+export function resultUrl(office: OfficeId, uf: string) {
+  const spec = FILE_SPEC[office];
+  const cargo = office === "deputado_estadual" && uf.toUpperCase() === "DF" ? "0008" : spec.cargo;
+  const code = uf.toLowerCase();
+  const ele = spec.ele.padStart(6, "0");
+  return `${TSE_ORIGIN}/${spec.ele}/dados/${code}/${code}-c${cargo}-e${ele}-u.json`;
+}
+
+export type PartyTally = {
+  sigla: string;
+  numero: string;
+  nome: string;
+  votos: number;
+  pct: number;
+};
+
+export type CandidateTally = {
+  nome: string;
+  sigla: string;
+  numero: string;
+  votos: number;
+  pct: number;
+};
+
+export type Tally = {
+  uf: string;
+  generated: string;
+  andamento: string;
+  sectionsTotal: number;
+  sectionsDone: number;
+  sectionsPct: number;
+  valid: number;
+  blank: number;
+  nulls: number;
+  pt: number;
+  pl: number;
+  parties: PartyTally[];
+  candidates: CandidateTally[];
+};
+
+type RawCand = { n?: string; nm?: string; nmu?: string; vap?: string };
+type RawParty = { n?: string; sg?: string; nm?: string; tvtn?: string; tvtl?: string; cand?: RawCand[] };
+type RawFile = {
+  dg?: string;
+  hg?: string;
+  and?: string;
+  carg?: Array<{ agr?: Array<{ par?: RawParty[] }> }>;
+  s?: { ts?: string; st?: string; pstn?: string };
+  v?: { vv?: string; vb?: string; tvn?: string };
+};
+
+function num(value: unknown) {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value !== "string" || value.trim() === "") return 0;
+  const parsed = Number(value.replace(",", "."));
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function siglaOf(value: string | undefined) {
+  return (value ?? "").replace(/\*/g, "").trim();
+}
+
+export function parseResult(json: RawFile, uf: string, proportional: boolean): Tally {
+  const parties = new Map<string, Omit<PartyTally, "pct">>();
+  const candidates: Omit<CandidateTally, "pct">[] = [];
+
+  for (const group of json.carg?.[0]?.agr ?? []) {
+    for (const party of group.par ?? []) {
+      const sigla = siglaOf(party.sg) || party.n || "?";
+      let votos = proportional ? num(party.tvtn) + num(party.tvtl) : 0;
+      let nominal = 0;
+      for (const cand of party.cand ?? []) {
+        const vap = num(cand.vap);
+        nominal += vap;
+        candidates.push({
+          nome: (cand.nmu || cand.nm || sigla).trim(),
+          sigla,
+          numero: String(cand.n ?? ""),
+          votos: vap,
+        });
+      }
+      if (!proportional || votos === 0) votos = nominal;
+      const current = parties.get(sigla);
+      if (current) current.votos += votos;
+      else parties.set(sigla, { sigla, numero: String(party.n ?? ""), nome: (party.nm || sigla).trim(), votos });
+    }
+  }
+
+  const valid = num(json.v?.vv);
+  const withPct = <T extends { votos: number }>(row: T) => ({
+    ...row,
+    pct: valid > 0 ? (row.votos / valid) * 100 : 0,
+  });
+  const partyRows = [...parties.values()].map(withPct).sort((a, b) => b.votos - a.votos || a.sigla.localeCompare(b.sigla, "pt-BR"));
+  const candidateRows = candidates.map(withPct).sort((a, b) => b.votos - a.votos || a.nome.localeCompare(b.nome, "pt-BR"));
+  const pt = partyRows.find((party) => party.sigla === "PT" || party.numero === "13")?.votos ?? 0;
+  const pl = partyRows.find((party) => party.sigla === "PL" || party.numero === "22")?.votos ?? 0;
+  const sectionsTotal = num(json.s?.ts);
+  const sectionsDone = num(json.s?.st);
+
+  return {
+    uf: uf.toUpperCase(),
+    generated: [json.dg, json.hg].filter(Boolean).join(" "),
+    andamento: json.and ?? "",
+    sectionsTotal,
+    sectionsDone,
+    sectionsPct: sectionsTotal > 0 ? (sectionsDone / sectionsTotal) * 100 : num(json.s?.pstn),
+    valid,
+    blank: num(json.v?.vb),
+    nulls: num(json.v?.tvn),
+    pt,
+    pl,
+    parties: partyRows,
+    candidates: candidateRows,
+  };
+}
+
+export function combineTallies(rows: Tally[], uf: string): Tally {
+  const parties = new Map<string, Omit<PartyTally, "pct">>();
+  let valid = 0;
+  let blank = 0;
+  let nulls = 0;
+  let sectionsTotal = 0;
+  let sectionsDone = 0;
+  let started = false;
+  let finished = rows.length > 0;
+
+  for (const row of rows) {
+    valid += row.valid;
+    blank += row.blank;
+    nulls += row.nulls;
+    sectionsTotal += row.sectionsTotal;
+    sectionsDone += row.sectionsDone;
+    if (row.andamento === "p" || row.valid > 0) started = true;
+    if (row.andamento !== "f") finished = false;
+    for (const party of row.parties) {
+      const current = parties.get(party.sigla);
+      if (current) current.votos += party.votos;
+      else parties.set(party.sigla, { sigla: party.sigla, numero: party.numero, nome: party.nome, votos: party.votos });
+    }
+  }
+
+  const partyRows = [...parties.values()]
+    .map((party) => ({ ...party, pct: valid > 0 ? (party.votos / valid) * 100 : 0 }))
+    .sort((a, b) => b.votos - a.votos || a.sigla.localeCompare(b.sigla, "pt-BR"));
+
+  return {
+    uf,
+    generated: "",
+    andamento: finished ? "f" : started ? "p" : "n",
+    sectionsTotal,
+    sectionsDone,
+    sectionsPct: sectionsTotal > 0 ? (sectionsDone / sectionsTotal) * 100 : 0,
+    valid,
+    blank,
+    nulls,
+    pt: partyRows.find((party) => party.sigla === "PT" || party.numero === "13")?.votos ?? 0,
+    pl: partyRows.find((party) => party.sigla === "PL" || party.numero === "22")?.votos ?? 0,
+    parties: partyRows,
+    candidates: [],
+  };
+}
+
+function mix(hex: string, amount: number) {
+  const channel = (start: number) => Math.round(255 + (start - 255) * amount).toString(16).padStart(2, "0");
+  return `#${channel(parseInt(hex.slice(1, 3), 16))}${channel(parseInt(hex.slice(3, 5), 16))}${channel(parseInt(hex.slice(5, 7), 16))}`;
+}
+
+/** White when PT and PL are tied or there are no votes. Stronger red or green as the gap grows. */
+export function leadVisual(pt: number, pl: number) {
+  const total = pt + pl;
+  if (total <= 0 || pt === pl) return { fill: "#ffffff", ink: "#171717" };
+  const amount = Math.abs(pt - pl) / total;
+  return {
+    fill: mix(pt > pl ? PT_RED : PL_GREEN, amount),
+    ink: amount > 0.75 ? "#ffffff" : "#171717",
+  };
+}
+
+export function formatMapShare(sigla: "PT" | "PL", pct: number) {
+  const text = new Intl.NumberFormat("pt-BR", { maximumFractionDigits: 0 }).format(pct);
+  return `${sigla} ${text}%`;
+}
+
+export function andamentoLabel(code: string) {
+  if (code === "f") return "Apuração encerrada";
+  if (code === "p") return "Apuração parcial";
+  if (code === "n") return "Apuração ainda não iniciada";
+  return "Apuração";
+}
