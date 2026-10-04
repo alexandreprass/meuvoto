@@ -30,6 +30,15 @@ export default function RootLayout({
   return (
     <html lang="pt-BR" className={`${geistSans.variable} h-full antialiased`} suppressHydrationWarning>
       <head>
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-NK9ZW8V0P7" />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `window.dataLayer = window.dataLayer || [];
+function gtag(){dataLayer.push(arguments);}
+gtag('js', new Date());
+gtag('config', 'G-NK9ZW8V0P7');`,
+          }}
+        />
         <script
           dangerouslySetInnerHTML={{
             __html: `try{if(localStorage.getItem("meuvoto-theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,

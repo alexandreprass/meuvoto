@@ -19,6 +19,10 @@ export default function PrivacidadePage() {
           o site para entregar as páginas e arquivos públicos.
         </p>
         <p>
+          As visitas às páginas são medidas pelo Google Analytics. Essa medição
+          não inclui as escolhas de candidatos feitas na página.
+        </p>
+        <p>
           As informações eleitorais apresentadas são dados públicos de
           candidaturas; a ficha detalhada é consultada diretamente no site do TSE.
         </p>
