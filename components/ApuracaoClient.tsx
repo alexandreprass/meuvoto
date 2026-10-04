@@ -202,7 +202,10 @@ export function ApuracaoClient() {
                 <h2 className="text-base font-semibold text-neutral-950">{officeHeading(office, selected)}</h2>
                 <p className="text-xs text-neutral-500">{shown ? andamentoLabel(shown.andamento) : "Carregando dados do TSE"}</p>
               </div>
-              <p className="text-right text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
+              <div className="shrink-0 text-right">
+                <p className="text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
+                {shown ? <p className="mt-1 text-xs font-medium text-neutral-500">{formatPercent(shown.sectionsPct)}% das urnas apuradas</p> : null}
+              </div>
             </div>
             <label className="mb-3 block">
               <span className="sr-only">Estado</span>
@@ -229,11 +232,12 @@ export function ApuracaoClient() {
               </div>
             ) : null}
 
-            <p className="mb-3 text-xs text-neutral-500">
-              {shown ? `${formatPercent(shown.sectionsPct)}% das seções` : "—"}
-              {shown?.generated ? ` · TSE ${shown.generated}` : ""}
-              {selected === "BR" && office === "presidente" ? " · inclui o voto no exterior" : ""}
-            </p>
+            {shown?.generated || (selected === "BR" && office === "presidente") ? (
+              <p className="mb-3 text-xs text-neutral-500">
+                {shown?.generated ? `TSE ${shown.generated}` : ""}
+                {selected === "BR" && office === "presidente" ? `${shown?.generated ? " · " : ""}inclui o voto no exterior` : ""}
+              </p>
+            ) : null}
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
               {rows.map((row) => {
