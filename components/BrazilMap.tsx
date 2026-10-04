@@ -34,6 +34,66 @@ function localPos(e: MouseEvent<SVGElement>): MapHoverPos {
 const WIDTH = 640;
 const HEIGHT = 680;
 
+function MapStamps({
+  path,
+  features,
+  stamps,
+}: {
+  path: ReturnType<typeof geoPath>;
+  features: BrazilFeature[];
+  stamps: Record<string, MapStamp>;
+}) {
+  const inside: { uf: string; stamp: MapStamp; x: number; y: number; size: number }[] = [];
+  const pending: { uf: string; stamp: MapStamp; x1: number; y: number }[] = [];
+
+  for (const feature of features) {
+    const uf = IBGE_TO_UF[String(feature.properties?.codarea ?? "")];
+    const stamp = uf ? stamps[uf] : undefined;
+    if (!uf || !stamp) continue;
+    const [x, y] = path.centroid(feature as never);
+    if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
+    const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
+    const boxW = x1 - x0;
+    const boxH = y1 - y0;
+    if (boxW >= 48 && boxH >= 36) {
+      inside.push({ uf, stamp, x, y, size: boxW > 100 ? 12 : boxW > 64 ? 9 : 8 });
+    } else {
+      pending.push({ uf, stamp, x1, y });
+    }
+  }
+
+  pending.sort((a, b) => a.y - b.y);
+  let cursor = 28;
+  const outside = pending.map((item) => {
+    const labelY = Math.max(item.y, cursor);
+    cursor = labelY + 30;
+    return { ...item, labelX: WIDTH - 132, labelY };
+  });
+
+  return (
+    <>
+      {inside.map((item) => (
+        <text key={`stamp-${item.uf}`} x={item.x} y={item.y} textAnchor="middle" fontWeight={700} fill={item.stamp.ink} pointerEvents="none">
+          <tspan x={item.x} dy="-0.45em" fontSize={item.size}>{item.stamp.top}</tspan>
+          <tspan x={item.x} dy="1.25em" fontSize={item.size}>{item.stamp.bottom}</tspan>
+        </text>
+      ))}
+      {outside.map((item) => {
+        const elbow = Math.min(item.x1 + 16, item.labelX - 8);
+        return (
+          <g key={`out-${item.uf}`} pointerEvents="none">
+            <path d={`M ${item.x1 + 1} ${item.y} H ${elbow} L ${item.labelX - 4} ${item.labelY}`} fill="none" stroke="#111111" strokeWidth={1} />
+            <text x={item.labelX} y={item.labelY} textAnchor="start" fontWeight={700} fill="#171717">
+              <tspan x={item.labelX} dy="-0.4em" fontSize={11}>{item.stamp.top}</tspan>
+              <tspan x={item.labelX} dy="1.2em" fontSize={11}>{item.stamp.bottom}</tspan>
+            </text>
+          </g>
+        );
+      })}
+    </>
+  );
+}
+
 export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props) {
   const [geo, setGeo] = useState<BrazilCollection | null>(null);
 
@@ -44,6 +104,7 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
       .catch(() => setGeo(null));
   }, []);
 
+  const callouts = Boolean(stamps);
   const { path, features } = useMemo(() => {
     if (!geo)
       return {
@@ -51,15 +112,20 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
         features: [] as BrazilFeature[],
       };
     const projection = geoMercator().fitExtent(
-      [
-        [12, 12],
-        [WIDTH - 12, HEIGHT - 12],
-      ],
+      callouts
+        ? [
+            [18, 18],
+            [WIDTH - 148, HEIGHT - 18],
+          ]
+        : [
+            [12, 12],
+            [WIDTH - 12, HEIGHT - 12],
+          ],
       geo,
     );
     const generator = geoPath(projection);
     return { path: generator, features: geo.features };
-  }, [geo]);
+  }, [geo, callouts]);
 
   if (!geo || !path) {
     return (
@@ -118,26 +184,7 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
           />
         );
       })}
-      {stamps
-        ? ordered.map((feature) => {
-            const uf = IBGE_TO_UF[String(feature.properties?.codarea ?? "")];
-            const stamp = uf ? stamps[uf] : undefined;
-            if (!uf || !stamp) return null;
-            const [x, y] = path.centroid(feature as never);
-            if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
-            const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
-            const boxW = x1 - x0;
-            const boxH = y1 - y0;
-            const size = boxW > 110 ? 12 : boxW > 60 ? 9 : 7;
-            if (boxW < 32 || boxH < 22) return null;
-            return (
-              <text key={`stamp-${uf}`} x={x} y={y} textAnchor="middle" fontWeight={700} fill={stamp.ink} pointerEvents="none">
-                <tspan x={x} dy="-0.45em" fontSize={size}>{stamp.top}</tspan>
-                <tspan x={x} dy="1.25em" fontSize={size}>{stamp.bottom}</tspan>
-              </text>
-            );
-          })
-        : null}
+      {stamps ? <MapStamps path={path} features={features} stamps={stamps} /> : null}
     </svg>
   );
 }
