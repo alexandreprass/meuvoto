@@ -8,7 +8,6 @@ import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { STATES, UF_MAP, formatPercent, formatVotes } from "@/lib/states";
 import {
   andamentoLabel,
-  formatMapShare,
   isProportional,
   leadVisual,
   parseResult,
@@ -47,7 +46,6 @@ function officeHeading(office: OfficeId, uf: string) {
 export function ApuracaoClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selected, setSelected] = useState<string>("BR");
-  const [hover, setHover] = useState<{ uf: string; x: number; y: number } | null>(null);
   const [presidentByUf, setPresidentByUf] = useState<Record<string, Tally>>({});
   const [byUf, setByUf] = useState<Record<string, Tally>>({});
   const [error, setError] = useState("");
@@ -126,19 +124,13 @@ export function ApuracaoClient() {
       const row = presidentByUf[state.uf];
       const visual = leadVisual(row?.pt ?? 0, row?.pl ?? 0);
       nextFills[state.uf] = visual.fill;
-      const valid = row?.valid ?? 0;
-      nextStamps[state.uf] = {
-        top: formatMapShare("L", valid > 0 ? ((row?.pt ?? 0) / valid) * 100 : 0),
-        bottom: formatMapShare("F", valid > 0 ? ((row?.pl ?? 0) / valid) * 100 : 0),
-        ink: visual.ink,
-      };
+      nextStamps[state.uf] = { ink: visual.ink };
     }
     return { fills: nextFills, stamps: nextStamps };
   }, [presidentByUf]);
 
-  const activeUf = hover?.uf ?? (selected !== "BR" ? selected : null);
-  const rows = shown && !isProportional(office) && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
-  const hoverRow = hover ? panelByUf[hover.uf] : undefined;
+  const activeUf = selected !== "BR" ? selected : null;
+  const rows = shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
   const ptPct = shown && shown.valid > 0 ? (shown.pt / shown.valid) * 100 : 0;
   const plPct = shown && shown.valid > 0 ? (shown.pl / shown.valid) * 100 : 0;
 
@@ -169,34 +161,18 @@ export function ApuracaoClient() {
           </div>
           <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
-              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setHover(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
             ))}
           </div>
           <div className="relative mx-auto w-full lg:w-1/2">
             {Object.keys(presidentByUf).length > 0 ? (
-              <>
               <BrazilMap
                 activeUf={activeUf}
                 fills={fills}
                 stamps={stamps}
-                onHover={(uf, pos) => setHover(uf && pos ? { uf, x: pos.x, y: pos.y } : null)}
-                onSelect={(uf) => {
-                  setSelected((current) => (current === uf && office === "presidente" ? "BR" : uf));
-                  setHover(null);
-                }}
+                onHover={() => undefined}
+                onSelect={(uf) => setSelected((current) => (current === uf && office === "presidente" ? "BR" : uf))}
               />
-              {hover && hoverRow ? (
-                <div className="pointer-events-none absolute z-10 hidden max-h-80 w-64 overflow-hidden rounded-2xl border border-neutral-200 bg-white p-3 text-xs shadow-lg lg:block" style={{ left: hover.x + 12, top: hover.y + 12 }}>
-                  <p className="mb-1 font-semibold text-neutral-950">{UF_MAP[hover.uf]?.name}</p>
-                  {hoverRow.candidates.slice(0, 20).map((candidate) => (
-                    <p key={`${candidate.numero}-${candidate.nome}`} className="flex justify-between gap-2 text-neutral-600">
-                      <span className="min-w-0 truncate">{candidate.nome}</span>
-                      <span className="shrink-0">{formatPercent(candidate.pct)}%</span>
-                    </p>
-                  ))}
-                </div>
-              ) : null}
-              </>
             ) : (
               <div className="flex aspect-square w-full items-center justify-center rounded-3xl bg-neutral-50">
                 <div className="h-10 w-10 animate-spin rounded-full border-2 border-neutral-200 border-t-neutral-900" />

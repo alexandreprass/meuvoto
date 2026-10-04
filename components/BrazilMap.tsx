@@ -12,7 +12,7 @@ type BrazilCollection = FeatureCollection<Geometry, GeoProps>;
 
 export type MapHoverPos = { x: number; y: number };
 
-export type MapStamp = { top: string; bottom: string; ink: string };
+export type MapStamp = { ink: string };
 
 type Props = {
   activeUf: string | null;
@@ -34,7 +34,7 @@ function localPos(e: MouseEvent<SVGElement>): MapHoverPos {
 const WIDTH = 640;
 const HEIGHT = 680;
 
-function MapStamps({
+function StateSiglas({
   path,
   features,
   stamps,
@@ -43,9 +43,7 @@ function MapStamps({
   features: BrazilFeature[];
   stamps: Record<string, MapStamp>;
 }) {
-  const inside: { uf: string; stamp: MapStamp; x: number; y: number; size: number }[] = [];
-  const pending: { uf: string; stamp: MapStamp; x1: number; y: number }[] = [];
-
+  const items: { uf: string; x: number; y: number; size: number; ink: string }[] = [];
   for (const feature of features) {
     const uf = IBGE_TO_UF[String(feature.properties?.codarea ?? "")];
     const stamp = uf ? stamps[uf] : undefined;
@@ -53,45 +51,44 @@ function MapStamps({
     const [x, y] = path.centroid(feature as never);
     if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
     const [[x0, y0], [x1, y1]] = path.bounds(feature as never);
-    const boxW = x1 - x0;
-    const boxH = y1 - y0;
-    if (boxW >= 48 && boxH >= 36) {
-      inside.push({ uf, stamp, x, y, size: boxW > 100 ? 12 : boxW > 64 ? 9 : 8 });
-    } else {
-      pending.push({ uf, stamp, x1, y });
+    items.push({
+      uf,
+      x,
+      y,
+      size: Math.max(6.5, Math.min(15, (x1 - x0) * 0.3, (y1 - y0) * 0.46)),
+      ink: stamp.ink,
+    });
+  }
+  for (let pass = 0; pass < 6; pass++) {
+    for (let i = 0; i < items.length; i++) {
+      for (let j = i + 1; j < items.length; j++) {
+        const a = items[i];
+        const b = items[j];
+        const dist = Math.hypot(a.x - b.x, a.y - b.y);
+        const need = (a.size + b.size) * 1.05;
+        if (dist > 0 && dist < need) {
+          const scale = dist / need;
+          a.size *= scale;
+          b.size *= scale;
+        }
+      }
     }
   }
-
-  pending.sort((a, b) => a.y - b.y);
-  let cursor = 28;
-  const outside = pending.map((item) => {
-    const labelY = Math.max(item.y, cursor);
-    cursor = labelY + 30;
-    return { ...item, labelX: WIDTH - 132, labelY };
-  });
-
-  return (
-    <>
-      {inside.map((item) => (
-        <text key={`stamp-${item.uf}`} x={item.x} y={item.y} textAnchor="middle" fontWeight={700} fill={item.stamp.ink} pointerEvents="none">
-          <tspan x={item.x} dy="-0.45em" fontSize={item.size}>{item.stamp.top}</tspan>
-          <tspan x={item.x} dy="1.25em" fontSize={item.size}>{item.stamp.bottom}</tspan>
-        </text>
-      ))}
-      {outside.map((item) => {
-        const elbow = Math.min(item.x1 + 16, item.labelX - 8);
-        return (
-          <g key={`out-${item.uf}`} pointerEvents="none">
-            <path d={`M ${item.x1 + 1} ${item.y} H ${elbow} L ${item.labelX - 4} ${item.labelY}`} fill="none" stroke="#111111" strokeWidth={1} />
-            <text x={item.labelX} y={item.labelY} textAnchor="start" fontWeight={700} fill="#171717">
-              <tspan x={item.labelX} dy="-0.4em" fontSize={11}>{item.stamp.top}</tspan>
-              <tspan x={item.labelX} dy="1.2em" fontSize={11}>{item.stamp.bottom}</tspan>
-            </text>
-          </g>
-        );
-      })}
-    </>
-  );
+  return items.map((item) => (
+    <text
+      key={`uf-${item.uf}`}
+      x={item.x}
+      y={item.y}
+      textAnchor="middle"
+      dominantBaseline="central"
+      fontSize={item.size}
+      fontWeight={700}
+      fill={item.ink}
+      pointerEvents="none"
+    >
+      {item.uf}
+    </text>
+  ));
 }
 
 export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props) {
@@ -104,7 +101,6 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
       .catch(() => setGeo(null));
   }, []);
 
-  const callouts = Boolean(stamps);
   const { path, features } = useMemo(() => {
     if (!geo)
       return {
@@ -112,20 +108,15 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
         features: [] as BrazilFeature[],
       };
     const projection = geoMercator().fitExtent(
-      callouts
-        ? [
-            [18, 18],
-            [WIDTH - 148, HEIGHT - 18],
-          ]
-        : [
-            [12, 12],
-            [WIDTH - 12, HEIGHT - 12],
-          ],
+      [
+        [12, 12],
+        [WIDTH - 12, HEIGHT - 12],
+      ],
       geo,
     );
     const generator = geoPath(projection);
     return { path: generator, features: geo.features };
-  }, [geo, callouts]);
+  }, [geo]);
 
   if (!geo || !path) {
     return (
@@ -184,7 +175,7 @@ export function BrazilMap({ activeUf, onHover, onSelect, fills, stamps }: Props)
           />
         );
       })}
-      {stamps ? <MapStamps path={path} features={features} stamps={stamps} /> : null}
+      {stamps ? <StateSiglas path={path} features={features} stamps={stamps} /> : null}
     </svg>
   );
 }
