@@ -1,4 +1,5 @@
 import senators from "@/data/senators.json";
+import governors from "@/data/governors.json";
 import federalDeputies from "@/data/federal-deputies.json";
 import stateDeputies from "@/data/state-deputies.json";
 import type { Candidate, OfficeId } from "./offices";
@@ -6,6 +7,7 @@ import type { Candidate, OfficeId } from "./offices";
 type CandidateFile = { states: Record<string, Candidate[]> };
 
 const files: Record<Exclude<OfficeId, "presidente">, CandidateFile> = {
+  governador: governors as CandidateFile,
   senador: senators as CandidateFile,
   deputado_federal: federalDeputies as CandidateFile,
   deputado_estadual: stateDeputies as CandidateFile,

@@ -12,11 +12,12 @@ type Props = {
   loading?: boolean;
   loadError?: boolean;
   onRetry?: () => void;
-  selectedId?: string;
+  selectedIds?: string[];
+  showRank?: boolean;
   onOpen: (candidate: Candidate) => void;
 };
 
-export function CandidateList({ candidates, office, state, loading, loadError, onRetry, selectedId, onOpen }: Props) {
+export function CandidateList({ candidates, office, state, loading, loadError, onRetry, selectedIds = [], showRank = false, onOpen }: Props) {
   const [query, setQuery] = useState("");
   const ordered = useMemo(
     () =>
@@ -68,7 +69,8 @@ export function CandidateList({ candidates, office, state, loading, loadError, o
       ) : null}
       <ul className="flex max-h-[62vh] flex-col gap-1.5 overflow-y-auto pr-1">
         {visible.map((candidate) => {
-          const selected = candidate.id === selectedId;
+          const rank = selectedIds.indexOf(candidate.id);
+          const selected = rank >= 0;
           return (
             <li
               key={candidate.id}
@@ -106,6 +108,7 @@ export function CandidateList({ candidates, office, state, loading, loadError, o
                 {candidate.number}
               </span>
               <PartyBadge party={candidate.party} size={30} />
+              {selected && showRank ? <span className="shrink-0 rounded-full bg-emerald-700 px-2 py-0.5 text-[10px] font-bold text-white">{rank + 1}º</span> : null}
               {selected ? <span className="sr-only">Sua escolha</span> : null}
             </li>
           );

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import type { Candidate, OfficeId } from "@/lib/offices";
-import { OFFICES } from "@/lib/offices";
+import { OFFICE_SEATS, OFFICES } from "@/lib/offices";
 import { tseIdentity } from "@/lib/tse";
 import { PartyBadge } from "./PartyBadge";
 import { assetUrl } from "@/lib/asset-url";
@@ -12,9 +12,20 @@ type Props = {
   candidate: Candidate;
   office: OfficeId;
   state: string;
+  chosen: boolean;
+  seatsFull: boolean;
+  slotIndex: number | null;
   onClose: () => void;
   onChoose: () => void;
 };
+
+function chooseLabel(office: OfficeId, chosen: boolean, seatsFull: boolean, slotIndex: number | null) {
+  if (chosen) return "REMOVER";
+  const seats = OFFICE_SEATS[office];
+  if (!seatsFull || seats === 1) return "ESCOLHER CANDIDATO";
+  const index = slotIndex == null || slotIndex < 0 ? seats - 1 : Math.min(slotIndex, seats - 1);
+  return index === 0 ? "TROCAR O PRIMEIRO" : "TROCAR O SEGUNDO";
+}
 
 function parseAmount(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
@@ -23,7 +34,7 @@ function parseAmount(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-export function CandidateDossier({ candidate, office, state, onClose, onChoose }: Props) {
+export function CandidateDossier({ candidate, office, state, chosen, seatsFull, slotIndex, onClose, onChoose }: Props) {
   const identity = tseIdentity(candidate);
   const [loadingAssets, setLoadingAssets] = useState(false);
   const [assetsError, setAssetsError] = useState("");
@@ -72,7 +83,8 @@ export function CandidateDossier({ candidate, office, state, onClose, onChoose }
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-100">x</button>
         </div>
-        <button type="button" onClick={onChoose} className="mt-5 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800">ESCOLHER CANDIDATO</button>
+        <button type="button" onClick={onChoose} className="mt-5 w-full rounded-full bg-neutral-950 py-3 text-sm font-semibold text-white hover:bg-neutral-800">{chooseLabel(office, chosen, seatsFull, slotIndex)}</button>
+        {OFFICE_SEATS[office] > 1 ? <p className="mt-2 text-center text-xs text-neutral-500">Você pode escolher até {OFFICE_SEATS[office]} {OFFICES[office].plural.toLocaleLowerCase("pt-BR")}.</p> : null}
         <p className="mt-2 text-center text-xs text-neutral-500">{"A escolha existe s\u00f3 enquanto esta p\u00e1gina estiver aberta."}</p>
         <section className="mt-5 rounded-2xl bg-neutral-50 p-4">
           <h3 className="font-semibold text-neutral-950">Ficha oficial</h3>

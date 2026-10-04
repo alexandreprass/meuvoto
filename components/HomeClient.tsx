@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { isStateOffice, OFFICES, type Candidate, type OfficeId } from "@/lib/offices";
+import { chooseCandidate, isStateOffice, OFFICE_SEATS, OFFICES, OFFICES_ORDER, removeChoice, type Candidate, type OfficeId } from "@/lib/offices";
 import { Header } from "./Header";
 import { BrazilMap } from "./BrazilMap";
 import { StatePanel } from "./StatePanel";
@@ -11,16 +11,15 @@ import { ChoiceModal } from "./ChoiceModal";
 import { UF_MAP } from "@/lib/states";
 import { assetUrl } from "@/lib/asset-url";
 
-const OFFICES_ORDER: OfficeId[] = ["presidente", "senador", "deputado_federal", "deputado_estadual"];
-
 export function HomeClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selectedState, setSelectedState] = useState("SP");
-  const [choices, setChoices] = useState<Partial<Record<OfficeId, Candidate>>>({});
+  const [choices, setChoices] = useState<Partial<Record<OfficeId, Candidate[]>>>({});
   const [hoverUf, setHoverUf] = useState<string | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
   const [dossier, setDossier] = useState<Candidate | null>(null);
+  const [pendingSlot, setPendingSlot] = useState<number | null>(null);
   const [candidateCache, setCandidateCache] = useState<Record<string, Candidate[]>>({});
   const [candidateLoadStatus, setCandidateLoadStatus] = useState<Record<string, "loading" | "error">>({});
   const candidateRequests = useRef(new Set<string>());
@@ -76,6 +75,7 @@ export function HomeClient() {
         onOffice={(id) => {
           if (!(id in OFFICES)) return;
           setOffice(id as OfficeId);
+          setPendingSlot(null);
           setPinnedUf(null);
           setHoverUf(null);
           setDossier(null);
@@ -117,6 +117,7 @@ export function HomeClient() {
                 {stateOffice ? UF_MAP[selectedState]?.name ?? selectedState : "Brasil"}
               </p>
               <h2 className="text-base font-semibold text-neutral-950">{OFFICES[office].plural}</h2>
+              {OFFICE_SEATS[office] > 1 ? <p className="text-xs text-neutral-500">Escolha até {OFFICE_SEATS[office]}.</p> : null}
             </div>
             {stateOffice ? (
               <label className="mb-2 block">
@@ -135,7 +136,8 @@ export function HomeClient() {
               loading={candidateLoadStatus[candidateKey] === "loading"}
               loadError={candidateLoadStatus[candidateKey] === "error"}
               onRetry={() => void loadCandidates(office, selectedState)}
-              selectedId={choices[office]?.id}
+              selectedIds={(choices[office] ?? []).map((candidate) => candidate.id)}
+              showRank={OFFICE_SEATS[office] > 1}
               onOpen={setDossier}
             />
             <button type="button" onClick={() => setChoiceOpen(true)} className="mt-3 w-full rounded-full bg-neutral-950 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800">
@@ -149,15 +151,14 @@ export function HomeClient() {
         meuvoto.org · dados de candidaturas publicados pelo TSE
       </footer>
 
-      {dossier ? <CandidateDossier candidate={dossier} office={office} state={selectedState} onClose={() => setDossier(null)} onChoose={() => {
-        setChoices((current) => ({ ...current, [office]: dossier }));
+      {dossier ? <CandidateDossier candidate={dossier} office={office} state={selectedState} chosen={(choices[office] ?? []).some((item) => item.id === dossier.id)} seatsFull={(choices[office] ?? []).length >= OFFICE_SEATS[office]} slotIndex={pendingSlot} onClose={() => setDossier(null)} onChoose={() => {
+        setChoices((current) => chooseCandidate(current, office, dossier, pendingSlot));
+        setPendingSlot(null);
         setDossier(null);
       }} /> : null}
-      {choiceOpen ? <ChoiceModal choices={choices} onClose={() => setChoiceOpen(false)} onOffice={(target) => {
-        setOffice(target); setChoiceOpen(false); setDossier(null);
-      }} onClear={(target) => setChoices((current) => {
-        const next = { ...current }; delete next[target]; return next;
-      })} /> : null}
+      {choiceOpen ? <ChoiceModal choices={choices} onClose={() => setChoiceOpen(false)} onOffice={(target, index) => {
+        setOffice(target); setPendingSlot(index); setChoiceOpen(false); setDossier(null);
+      }} onClear={(target, index) => setChoices((current) => removeChoice(current, target, index))} /> : null}
     </div>
   );
 }

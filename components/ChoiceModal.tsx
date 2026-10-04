@@ -1,25 +1,28 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Candidate, OfficeId } from "@/lib/offices";
-import { OFFICES } from "@/lib/offices";
+import type { BallotChoices, OfficeId } from "@/lib/offices";
+import { OFFICE_SEATS, OFFICES, OFFICES_ORDER, slotLabel } from "@/lib/offices";
 import { renderBallotCard } from "./ballot-card";
 import { PartyBadge } from "./PartyBadge";
 import { assetUrl } from "@/lib/asset-url";
 
-const OFFICES_ORDER: OfficeId[] = ["presidente", "senador", "deputado_federal", "deputado_estadual"];
 type Props = {
-  choices: Partial<Record<OfficeId, Candidate>>;
+  choices: BallotChoices;
   onClose: () => void;
-  onOffice: (office: OfficeId) => void;
-  onClear: (office: OfficeId) => void;
+  onOffice: (office: OfficeId, index: number) => void;
+  onClear: (office: OfficeId, index: number) => void;
 };
 
 export function ChoiceModal({ choices, onClose, onOffice, onClear }: Props) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const chosen = OFFICES_ORDER.flatMap((office) => choices[office] ? [{ office, candidate: choices[office] as Candidate }] : []);
+  const slots = OFFICES_ORDER.flatMap((office) => Array.from({ length: OFFICE_SEATS[office] }, (_, index) => ({ office, index })));
+  const chosen = slots.flatMap(({ office, index }) => {
+    const candidate = choices[office]?.[index];
+    return candidate ? [{ office, candidate }] : [];
+  });
 
   useEffect(() => () => { if (previewUrl) URL.revokeObjectURL(previewUrl); }, [previewUrl]);
 
@@ -54,18 +57,22 @@ export function ChoiceModal({ choices, onClose, onOffice, onClear }: Props) {
           <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-full p-2 text-neutral-400 hover:bg-neutral-100">×</button>
         </div>
         <div className="flex flex-col gap-3">
-          {OFFICES_ORDER.map((office) => {
-            const candidate = choices[office];
-            return <div key={office} className="flex min-h-20 items-center gap-3 rounded-2xl border border-neutral-200 px-3 py-3">
-              {candidate ? <img src={candidate.photo.startsWith("/") ? assetUrl(candidate.photo) : candidate.photo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = assetUrl(candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg"); }} className="h-14 w-14 shrink-0 rounded-full object-cover object-top" /> : <span className="h-14 w-14 shrink-0 rounded-full border border-neutral-200 bg-neutral-50" />}
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{OFFICES[office].label}</p>
-                <p className="truncate font-semibold text-neutral-950">{candidate?.name ?? "Ainda sem escolha"}</p>
-                {candidate ? <p className="text-xs text-neutral-500">{candidate.party} · {candidate.number}</p> : null}
+          {slots.map(({ office, index }) => {
+            const candidate = choices[office]?.[index];
+            return <div key={`${office}-${index}`} className="flex flex-col gap-3 rounded-2xl border border-neutral-200 px-3 py-3 sm:flex-row sm:items-center">
+              <div className="flex min-w-0 flex-1 items-center gap-3">
+                {candidate ? <img src={candidate.photo.startsWith("/") ? assetUrl(candidate.photo) : candidate.photo} alt="" onError={(event) => { event.currentTarget.onerror = null; event.currentTarget.src = assetUrl(candidate.fallbackPhoto ?? "/candidates/senators/placeholder.svg"); }} className="h-14 w-14 shrink-0 rounded-full object-cover object-top" /> : <span className="h-14 w-14 shrink-0 rounded-full border border-neutral-200 bg-neutral-50" />}
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-neutral-400">{slotLabel(office, index)}</p>
+                  <p className="truncate font-semibold text-neutral-950">{candidate?.name ?? "Ainda sem escolha"}</p>
+                  {candidate ? <p className="truncate text-xs text-neutral-500">{candidate.party} · {candidate.number}</p> : null}
+                </div>
+                {candidate ? <PartyBadge party={candidate.party} size={30} /> : null}
               </div>
-              {candidate ? <PartyBadge party={candidate.party} size={30} /> : null}
-              {candidate ? <button type="button" onClick={() => onClear(office)} className="shrink-0 rounded-full px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100">Remover</button> : null}
-              <button type="button" onClick={() => onOffice(office)} className="shrink-0 rounded-full bg-neutral-950 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800">{candidate ? "Trocar" : "Escolher"}</button>
+              <div className="flex shrink-0 items-center justify-end gap-2">
+                {candidate ? <button type="button" onClick={() => onClear(office, index)} className="rounded-full px-3 py-2 text-xs font-semibold text-neutral-600 hover:bg-neutral-100">Remover</button> : null}
+                <button type="button" onClick={() => onOffice(office, index)} className="rounded-full bg-neutral-950 px-4 py-2 text-xs font-semibold text-white hover:bg-neutral-800">{candidate ? "Trocar" : "Escolher"}</button>
+              </div>
             </div>;
           })}
         </div>

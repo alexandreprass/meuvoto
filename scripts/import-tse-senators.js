@@ -2,9 +2,11 @@
 const fs = require("fs");
 const path = require("path");
 
-const [, , csvPathArg] = process.argv;
+const args = process.argv.slice(2).filter((arg) => !arg.startsWith("--"));
+const only = process.argv.find((arg) => arg.startsWith("--only="))?.slice("--only=".length) ?? "";
+const [csvPathArg] = args;
 if (!csvPathArg) {
-  console.error("Uso: node scripts/import-tse-senators.js caminho/consulta_cand_2026_BRASIL.csv");
+  console.error("Uso: node scripts/import-tse-senators.js caminho/consulta_cand_2026_BRASIL.csv [--only=governador]");
   process.exit(1);
 }
 
@@ -13,6 +15,7 @@ const placeholder = "/candidates/senators/placeholder.svg";
 const electionId = "20322002026";
 const palette = ["#2563EB", "#DC2626", "#059669", "#D97706", "#7C3AED", "#0891B2", "#BE123C", "#4D7C0F", "#9333EA", "#0F766E", "#B45309", "#1D4ED8"];
 const cargos = {
+  GOVERNADOR: { office: "governador", output: "governors.json" },
   SENADOR: { office: "senador", output: "senators.json" },
   "DEPUTADO FEDERAL": { office: "deputado_federal", output: "federal-deputies.json" },
   "DEPUTADO ESTADUAL": { office: "deputado_estadual", output: "state-deputies.json" },
@@ -48,7 +51,7 @@ for (const line of lines) {
   const values = parseCsvLine(line);
   const row = Object.fromEntries(headers.map((header, index) => [header, values[index] ?? ""]));
   const config = cargos[(row.DS_CARGO || "").toUpperCase()];
-  if (!config) continue;
+  if (!config || (only && config.office !== only)) continue;
   const uf = (row.SG_UF || row.SG_UE || "").toUpperCase();
   const sq = row.SQ_CANDIDATO;
   const dataset = datasets[config.office];
@@ -70,7 +73,10 @@ for (const line of lines) {
   });
 }
 
+const written = new Set();
 for (const config of Object.values(cargos)) {
+  if (written.has(config.office) || (only && config.office !== only)) continue;
+  written.add(config.office);
   const dataset = datasets[config.office];
   const outputPath = path.resolve("data", config.output);
   fs.writeFileSync(outputPath, JSON.stringify({

@@ -4,6 +4,7 @@ const path = require("node:path");
 const root = path.resolve(__dirname, "..");
 const output = path.join(root, "public", "candidate-data");
 const sources = [
+  ["governador", "governors.json"],
   ["senador", "senators.json"],
   ["deputado_federal", "federal-deputies.json"],
   ["deputado_estadual", "state-deputies.json"],
