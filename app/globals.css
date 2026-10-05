@@ -21,6 +21,10 @@ button {
   cursor: pointer;
 }
 
+header.sticky > div {
+  padding-right: 4.75rem;
+}
+
 @keyframes rec-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0.15; }
