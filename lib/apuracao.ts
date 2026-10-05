@@ -67,6 +67,14 @@ function mixRgb(target: [number, number, number], amount: number) {
 export const LULA_RAMP = MARGIN_MIX.map((amount) => mixRgb(LULA_RGB, amount));
 export const FLAVIO_RAMP = MARGIN_MIX.map((amount) => mixRgb(FLAVIO_RGB, amount));
 export const MAP_EMPTY = "#211F1C";
+export const LULA_SOLID = "#DC2626";
+export const FLAVIO_SOLID = "#15803D";
+
+/** Solid red where Lula is ahead, solid green where Flávio is ahead. A tie stays empty. */
+export function stateWinnerFill(pt: number, pl: number, valid = pt + pl) {
+  if (valid <= 0 || pt === pl) return "";
+  return pt > pl ? LULA_SOLID : FLAVIO_SOLID;
+}
 
 /** Red when Lula is ahead, green when Flávio is ahead. The shade follows the lead in points. A tie stays dark. */
 export function winnerFill(pt: number, pl: number, valid = pt + pl) {

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ApuracaoBadge } from "./ApuracaoButton";
-import { MunicipalMap } from "./MunicipalMap";
+import { MunicipalMap, type MapMode } from "./MunicipalMap";
 import { PartyBadge } from "./PartyBadge";
 import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { assetUrl } from "@/lib/asset-url";
@@ -15,6 +15,7 @@ import {
   andamentoLabel,
   isProportional,
   tallyComplete,
+  stateWinnerFill,
   winnerFill,
   type CandidateTally,
   type PartyTally,
@@ -326,6 +327,9 @@ export function ApuracaoClient() {
   const [round, setRound] = useState<1 | 2>(1);
   const [roundFocus, setRoundFocus] = useState("ALL");
   const [office, setOffice] = useState<OfficeId>("presidente");
+  const [mapMode, setMapMode] = useState<MapMode>("municipal");
+  const [mapUf, setMapUf] = useState<string | null>(null);
+  const [ufOpen, setUfOpen] = useState(false);
   const [selected, setSelected] = useState<string>("BR");
   const [presidentByUf, setPresidentByUf] = useState<Record<string, Tally>>({});
   const [byUf, setByUf] = useState<Record<string, Tally>>({});
@@ -450,11 +454,13 @@ export function ApuracaoClient() {
     return next;
   }, [briefs]);
 
-  const stateMarks = useMemo(() => {
-    const next: Record<string, string | null> = {};
+  const stateFills = useMemo(() => {
+    const next: Record<string, string> = {};
     for (const state of STATES) {
       const tally = presidentByUf[state.uf];
-      next[state.uf] = tally && tally.valid > 0 ? String(Math.round((Math.max(tally.pt, tally.pl) / tally.valid) * 100)) : null;
+      if (!tally) continue;
+      const color = stateWinnerFill(tally.pt, tally.pl, tally.valid);
+      if (color) next[state.uf] = color;
     }
     return next;
   }, [presidentByUf]);
@@ -486,6 +492,17 @@ export function ApuracaoClient() {
     setQuery("");
   }, [byIbge, round]);
 
+  const onStateSelect = useCallback((uf: string) => {
+    if (round === 2) {
+      setRoundFocus((current) => (RUNOFF_UFS.has(uf) ? (current === uf ? "ALL" : uf) : "ALL"));
+      return;
+    }
+    setSelected(uf);
+    setMunicipio("");
+    setMunTally(null);
+    setQuery("");
+  }, [round]);
+
   const mapTip = useCallback((ibge: string) => {
     const mun = byIbge.get(ibge);
     if (!mun) return null;
@@ -509,6 +526,34 @@ export function ApuracaoClient() {
       </>
     );
   }, [briefs, byIbge]);
+
+  const stateTip = useCallback((uf: string) => {
+    const tally = presidentByUf[uf];
+    const name = UF_MAP[uf]?.name ?? uf;
+    if (!tally || tally.valid <= 0) return <p className="text-xs font-semibold">{name}</p>;
+    return (
+      <>
+        <p className="mb-1 truncate text-xs font-semibold">{name}</p>
+        <p className="text-[11px]">Lula {formatPercent((tally.pt / tally.valid) * 100)}%</p>
+        <p className="text-[11px]">Flávio {formatPercent((tally.pl / tally.valid) * 100)}%</p>
+      </>
+    );
+  }, [presidentByUf]);
+
+  function chooseMapUf(uf: string | null) {
+    setUfOpen(false);
+    setMapUf(uf);
+    setMapMode("municipal");
+    setMunicipio("");
+    setMunTally(null);
+    setQuery("");
+    if (round === 2) {
+      setRoundFocus(!uf || !RUNOFF_UFS.has(uf) ? "ALL" : uf);
+      return;
+    }
+    if (uf) setSelected(uf);
+    else if (office === "presidente") setSelected("BR");
+  }
 
   const rows = useMemo(
     () => (shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? []),
@@ -554,12 +599,34 @@ export function ApuracaoClient() {
             </div> : null}
           </div>
           <div className="relative mx-auto w-full max-w-3xl">
-            <MunicipalMap fills={fills} marks={stateMarks} activeIbge={round === 1 ? activeIbge : null} onSelect={onMapSelect} tip={mapTip} />
+            <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+              <span className="font-semibold uppercase tracking-wider text-neutral-400">Mapa:</span>
+              <button type="button" onClick={() => setMapMode("municipal")} className={`rounded-full px-2 py-0.5 font-semibold ${mapMode === "municipal" ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>Municipal</button>
+              <span className="text-neutral-400">ou</span>
+              <button type="button" onClick={() => { setMapMode("estadual"); setMapUf(null); setUfOpen(false); setMunicipio(""); setMunTally(null); }} className={`rounded-full px-2 py-0.5 font-semibold ${mapMode === "estadual" ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>Estadual</button>
+              <div className="relative">
+                <button type="button" aria-expanded={ufOpen} onClick={() => setUfOpen((open) => !open)} className="rounded-full bg-neutral-100 px-2 py-0.5 font-semibold text-neutral-700">{mapUf ?? "Brasil"}</button>
+                {ufOpen ? (
+                  <>
+                    <button type="button" aria-label="Fechar estados" className="fixed inset-0 z-20 cursor-default" onClick={() => setUfOpen(false)} />
+                    <div className="absolute left-0 z-30 mt-1 w-52 rounded-2xl border border-neutral-200 bg-white p-2 shadow-lg">
+                      <button type="button" onClick={() => chooseMapUf(null)} className={`mb-1 w-full rounded-full px-2 py-1 text-left font-semibold ${mapUf === null ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-600"}`}>Brasil</button>
+                      <div className="grid grid-cols-6 gap-1">
+                        {STATES.map((state) => (
+                          <button key={state.uf} type="button" onClick={() => chooseMapUf(state.uf)} className={`rounded-md px-1 py-1 font-semibold ${mapUf === state.uf ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-600"}`}>{state.uf}</button>
+                        ))}
+                      </div>
+                    </div>
+                  </>
+                ) : null}
+              </div>
+            </div>
+            <MunicipalMap mode={mapMode} fills={fills} stateFills={stateFills}  activeIbge={round === 1 ? activeIbge : null} activeUf={round === 2 ? (roundFocus === "ALL" ? null : roundFocus) : (selected === "BR" ? null : selected)} focusUf={mapMode === "municipal" ? mapUf : null} focusPrefix={mapMode === "municipal" && mapUf ? STATES.find((state) => state.uf === mapUf)?.ibge ?? null : null} onSelect={onMapSelect} onSelectState={onStateSelect} tip={mapTip} stateTip={stateTip} />
             {munProgress.total > 0 && munProgress.done < munProgress.total ? (
               <p className="mt-2 text-center text-xs text-neutral-400">Municípios {munProgress.done.toLocaleString("pt-BR")} de {munProgress.total.toLocaleString("pt-BR")}</p>
             ) : null}
           </div>
-          <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">{round === 2 ? "Toque em um estado com segundo turno" : "Toque em um município para ver os votos"}</p>
+          <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">{round === 2 ? "Toque em um estado com segundo turno" : mapMode === "estadual" ? "Toque em um estado para ver os votos" : "Toque em um município para ver os votos"}</p>
         </section>
 
         <aside className="w-full shrink-0 lg:w-[520px]">

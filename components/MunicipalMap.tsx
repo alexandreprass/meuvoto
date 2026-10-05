@@ -2,30 +2,37 @@
 
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { assetUrl } from "@/lib/asset-url";
-import { FLAVIO_RAMP, LULA_RAMP, MAP_EMPTY } from "@/lib/apuracao";
+import { FLAVIO_RAMP, FLAVIO_SOLID, LULA_RAMP, LULA_SOLID, MAP_EMPTY } from "@/lib/apuracao";
 import { useNightMode } from "./ThemeToggle";
 
 type Shape = { ibge: string; d: string };
 type UfShape = { uf: string; d: string; x: number; y: number };
 type MapFile = { w: number; h: number; p: [string, string][]; s?: [string, string, number, number][] };
 
+export type MapMode = "municipal" | "estadual";
+
 type Props = {
+  mode: MapMode;
   fills: Record<string, string>;
-  marks: Record<string, string | null>;
+  stateFills: Record<string, string>;
   activeIbge: string | null;
+  activeUf: string | null;
+  focusUf: string | null;
+  focusPrefix: string | null;
   onSelect: (ibge: string) => void;
+  onSelectState: (uf: string) => void;
   tip: (ibge: string) => ReactNode;
+  stateTip: (uf: string) => ReactNode;
 };
 
 const WIDTH = 640;
 const HEIGHT = 680;
 const MIN_VIEW = 70;
-const GROUND = "#0F0E0D";
-const MUNI_STROKE = "rgba(15,14,13,0.55)";
+const MUNI_STROKE = "#000000";
 const DAY_EMPTY = "#ffffff";
-const DAY_SEAM = "rgba(0,0,0,0.16)";
+const DAY_SEAM = "#000000";
 const DAY_ACTIVE = "#171717";
-const BORDER = "0.4";
+const BORDER = "1";
 const ACTIVE_STROKE = "#FAFAF9";
 const ACTIVE_WIDTH = "1.7";
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -53,11 +60,21 @@ function zoomAround(view: View, factor: number): View {
   return clampView({ x: cx - w / 2, y: cy - h / 2, w, h });
 }
 
-function zoomOut(view: View): View {
+function zoomOut(view: View, home: View): View {
   const w = view.w * 1.6;
   const h = view.h * 1.6;
-  if (w >= WIDTH || h >= HEIGHT) return HOME;
-  return { x: (WIDTH - w) / 2, y: (HEIGHT - h) / 2, w, h };
+  if (w >= home.w || h >= home.h) return home;
+  return { x: home.x + (home.w - w) / 2, y: home.y + (home.h - h) / 2, w, h };
+}
+
+function fitView(box: { x: number; y: number; width: number; height: number }): View {
+  const pad = Math.max(box.width, box.height, 12) * 0.06;
+  let w = box.width + pad * 2;
+  let h = box.height + pad * 2;
+  const frame = WIDTH / HEIGHT;
+  if (w / h > frame) h = w / frame;
+  else w = h * frame;
+  return { x: box.x + box.width / 2 - w / 2, y: box.y + box.height / 2 - h / 2, w, h };
 }
 
 function clampView(view: View): View {
@@ -114,9 +131,10 @@ const StateLayer = memo(function StateLayer({ states }: { states: UfShape[] }) {
     for (const shape of states) {
       const path = document.createElementNS(SVG_NS, "path");
       path.setAttribute("d", shape.d);
+      path.setAttribute("data-uf", shape.uf);
       path.setAttribute("fill", "none");
-      path.setAttribute("stroke", nightOn() ? GROUND : "rgba(0,0,0,0.28)");
-      path.setAttribute("stroke-width", "1.35");
+      path.setAttribute("stroke", "#000000");
+      path.setAttribute("stroke-width", "1.15");
       path.setAttribute("stroke-linejoin", "round");
       path.setAttribute("vector-effect", "non-scaling-stroke");
       fragment.appendChild(path);
@@ -124,15 +142,15 @@ const StateLayer = memo(function StateLayer({ states }: { states: UfShape[] }) {
     group.replaceChildren(fragment);
   }, [states]);
 
-  return <g ref={ref} className="estados" style={{ pointerEvents: "none" }} />;
+  return <g ref={ref} className="estados" />;
 });
 
-export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props) {
+export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, focusUf, focusPrefix, onSelect, onSelectState, tip, stateTip }: Props) {
   const night = useNightMode();
   const [shapes, setShapes] = useState<Shape[] | null>(null);
   const [states, setStates] = useState<UfShape[]>([]);
   const [view, setView] = useState<View>(HOME);
-  const [cursor, setCursor] = useState<{ ibge: string; x: number; y: number; flipX: boolean; flipY: boolean } | null>(null);
+  const [cursor, setCursor] = useState<{ kind: "city" | "state"; id: string; x: number; y: number; flipX: boolean; flipY: boolean } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const activeNode = useRef<SVGPathElement | null>(null);
@@ -140,10 +158,15 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
   const activeRef = useRef<string | null>(null);
   const dragRef = useRef<{ x: number; y: number; view: View; moved: boolean } | null>(null);
   const skipClick = useRef(false);
+  const fittedRef = useRef<View>(HOME);
 
   useEffect(() => {
     activeRef.current = activeIbge;
   }, [activeIbge]);
+
+  useEffect(() => {
+    setCursor(null);
+  }, [mode]);
 
   useEffect(() => {
     fetch(assetUrl("/brazil-municipios.json"))
@@ -167,15 +190,46 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
       const path = paths[index];
       const ibge = path.getAttribute("data-id") ?? "";
       const raw = fills[ibge];
+      const shown = mode !== "municipal" || !focusPrefix || ibge.startsWith(focusPrefix);
+      if (shown) path.removeAttribute("display");
+      else path.setAttribute("display", "none");
       path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
       const on = ibge === activeRef.current;
       const over = hoverNode.current === path && !on;
       path.setAttribute("stroke", on ? activeColor : over ? hot : seam);
       path.setAttribute("stroke-width", on ? ACTIVE_WIDTH : over ? "1.15" : BORDER);
     }
-    const border = night ? GROUND : "rgba(0,0,0,0.28)";
-    svg.querySelectorAll("g.estados path").forEach((path) => path.setAttribute("stroke", border));
-  }, [fills, shapes, night]);
+    const stateActive = night ? ACTIVE_STROKE : "#000000";
+    svg.querySelectorAll("g.estados path").forEach((node) => {
+      if (!(node instanceof SVGPathElement)) return;
+      const uf = node.getAttribute("data-uf") ?? "";
+      const selected = mode === "estadual" && uf === activeUf;
+      if (mode === "municipal" && focusUf && uf !== focusUf) node.setAttribute("display", "none");
+      else node.removeAttribute("display");
+      if (mode === "estadual") {
+        node.setAttribute("fill", stateFills[uf] || empty);
+        node.setAttribute("pointer-events", "auto");
+      } else {
+        node.setAttribute("fill", "none");
+        node.setAttribute("pointer-events", "none");
+      }
+      node.setAttribute("stroke", selected ? stateActive : "#000000");
+      node.setAttribute("stroke-width", selected ? "2.4" : "1.15");
+    });
+  }, [activeUf, fills, focusPrefix, focusUf, mode, night, shapes, stateFills]);
+
+  useEffect(() => {
+    if (mode !== "municipal" || !focusUf || !svgRef.current) {
+      fittedRef.current = HOME;
+      setView(HOME);
+      return;
+    }
+    const node = svgRef.current.querySelector(`path[data-uf="${focusUf}"]`);
+    if (!(node instanceof SVGGraphicsElement)) return;
+    const next = fitView(node.getBBox());
+    fittedRef.current = next;
+    setView(next);
+  }, [focusUf, mode, states]);
 
   useEffect(() => {
     const previous = activeNode.current;
@@ -199,40 +253,54 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
   const onShapeMove = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
     const target = event.target;
     if (!(target instanceof SVGPathElement)) return;
-    const ibge = target.getAttribute("data-id");
     const rect = wrapRef.current?.getBoundingClientRect();
-    if (!ibge || !rect) return;
+    if (!rect) return;
+    const uf = target.getAttribute("data-uf");
+    if (mode === "estadual") {
+      if (!uf) return;
+      const x = event.clientX - rect.left;
+      const y = event.clientY - rect.top;
+      setCursor({ kind: "state", id: uf, x, y, flipX: x > rect.width * 0.58, flipY: y > rect.height * 0.62 });
+      return;
+    }
+    const ibge = target.getAttribute("data-id");
+    if (!ibge) return;
     if (hoverNode.current !== target) {
       const previous = hoverNode.current;
       if (previous) paintStroke(previous, previous.getAttribute("data-id") === activeRef.current);
       hoverNode.current = target;
       if (ibge !== activeRef.current) {
-        target.setAttribute("stroke", nightOn() ? "rgba(250,250,249,0.9)" : "rgba(23,23,23,0.8)");
-        target.setAttribute("stroke-width", "1.15");
+        target.setAttribute("stroke", "#000000");
+        target.setAttribute("stroke-width", "1.8");
       }
     }
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     setCursor({
-      ibge,
+      kind: "city",
+      id: ibge,
       x,
       y,
       flipX: x > rect.width * 0.58,
       flipY: y > rect.height * 0.62,
     });
-  }, []);
+  }, [mode]);
 
   const onShapeClick = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
     const target = event.target;
     if (!(target instanceof SVGPathElement)) return;
-    const ibge = target.getAttribute("data-id");
-    if (!ibge) return;
     if (skipClick.current) {
       skipClick.current = false;
       return;
     }
-    onSelect(ibge);
-  }, [onSelect]);
+    if (mode === "estadual") {
+      const uf = target.getAttribute("data-uf");
+      if (uf) onSelectState(uf);
+      return;
+    }
+    const ibge = target.getAttribute("data-id");
+    if (ibge) onSelect(ibge);
+  }, [mode, onSelect, onSelectState]);
 
   function onPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
     if (event.button !== 0) return;
@@ -267,7 +335,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
     );
   }
 
-  const showMarks = view.w > 240;
+  const showMarks = Boolean(focusUf) || view.w > 240;
 
   return (
     <div ref={wrapRef} className="relative overflow-hidden">
@@ -278,7 +346,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
         className="h-auto w-full touch-none select-none"
         shapeRendering="optimizeSpeed"
         role="img"
-        aria-label="Mapa do Brasil por município"
+        aria-label={mode === "estadual" ? "Mapa do Brasil por estado" : "Mapa do Brasil por município"}
         onPointerDown={onPointerDown}
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
@@ -287,26 +355,18 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
         onClick={onShapeClick}
         onMouseLeave={() => { clearHover(); setCursor(null); }}
       >
-        <PathLayer shapes={shapes} />
+        {mode === "municipal" ? <PathLayer shapes={shapes} /> : null}
         <StateLayer states={states} />
         {showMarks ? (
           <g style={{ pointerEvents: "none" }} fontFamily="inherit">
-            {states.map((pin) => {
-              const pct = marks[pin.uf];
+            {states.filter((pin) => mode !== "municipal" || !focusUf || pin.uf === focusUf).map((pin) => {
               const small = SMALL.has(pin.uf);
-              const [dx, dy] = NUDGE[pin.uf] ?? [0, 0];
+              const [dx, dy] = focusUf ? [0, 0] : (NUDGE[pin.uf] ?? [0, 0]);
               const x = pin.x + dx;
               const y = pin.y + dy;
               return (
-                <text key={pin.uf} className="muni-label" x={x} y={y} textAnchor="middle" strokeWidth="2.4" paintOrder="stroke" strokeLinejoin="round" fontWeight={600}>
-                  {small ? (
-                    <tspan fontSize={10}>{pin.uf}{pct ? ` ${pct}%` : ""}</tspan>
-                  ) : (
-                    <>
-                      <tspan x={x} dy={-5} fontSize={13}>{pin.uf}</tspan>
-                      {pct ? <tspan x={x} dy={12} fontSize={11} fontWeight={500}>{pct}%</tspan> : null}
-                    </>
-                  )}
+                <text key={pin.uf} className="muni-label" x={x} y={y} textAnchor="middle" strokeWidth="2.4" paintOrder="stroke" strokeLinejoin="round" fontWeight={600} fontSize={small ? 10 : 13}>
+                  {pin.uf}
                 </text>
               );
             })}
@@ -322,13 +382,22 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
             transform: `translate(${cursor.flipX ? "calc(-100% - 14px)" : "14px"}, ${cursor.flipY ? "calc(-100% - 8px)" : "14px"})`,
           }}
         >
-          {tip(cursor.ibge)}
+          {cursor.kind === "city" ? tip(cursor.id) : stateTip(cursor.id)}
         </div>
       ) : null}
       <div className="map-legend flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-2">
-        <Ramp name="Lula" colors={LULA_RAMP} />
-        <Ramp name="Flávio" colors={FLAVIO_RAMP} />
-        <span className="text-[10px]">até 10 · 25 · 45 · mais pontos</span>
+        {mode === "estadual" ? (
+          <>
+            <span className="flex items-center gap-1.5 text-[11px]"><i className="block h-2.5 w-3 rounded-sm" style={{ background: LULA_SOLID }} />Lula</span>
+            <span className="flex items-center gap-1.5 text-[11px]"><i className="block h-2.5 w-3 rounded-sm" style={{ background: FLAVIO_SOLID }} />Flávio</span>
+          </>
+        ) : (
+          <>
+            <Ramp name="Lula" colors={LULA_RAMP} />
+            <Ramp name="Flávio" colors={FLAVIO_RAMP} />
+            <span className="text-[10px]">até 10 · 25 · 45 · mais pontos</span>
+          </>
+        )}
       </div>
       <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
         <button
@@ -346,7 +415,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
         <button
           type="button"
           aria-label="Afastar o mapa"
-          onClick={() => setView((current) => zoomOut(current))}
+          onClick={() => setView((current) => zoomOut(current, fittedRef.current))}
           className="map-zoom flex h-9 w-9 items-center justify-center rounded-full border"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
