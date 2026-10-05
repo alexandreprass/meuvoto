@@ -43,6 +43,10 @@ function officeHeading(office: OfficeId, uf: string) {
   return OFFICES[office].label;
 }
 
+function fold(value: string) {
+  return value.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
+}
+
 function reducedMotionSubscribe(onChange: () => void) {
   const media = window.matchMedia("(prefers-reduced-motion: reduce)");
   media.addEventListener("change", onChange);
@@ -138,6 +142,7 @@ export function ApuracaoClient() {
   const [byUf, setByUf] = useState<Record<string, Tally>>({});
   const [error, setError] = useState("");
   const [clock, setClock] = useState("");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let stopped = false;
@@ -219,6 +224,11 @@ export function ApuracaoClient() {
 
   const activeUf = selected !== "BR" ? selected : null;
   const rows = shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
+  const filteredRows = useMemo(() => {
+    const needle = fold(query.trim());
+    if (!needle) return rows;
+    return rows.filter((row) => fold(`${row.nome} ${row.numero} ${row.sigla}`).includes(needle));
+  }, [query, rows]);
   const ptPct = shown && shown.valid > 0 ? (shown.pt / shown.valid) * 100 : 0;
   const plPct = shown && shown.valid > 0 ? (shown.pl / shown.valid) * 100 : 0;
   const votePlace = shown?.uf ?? "";
@@ -250,7 +260,7 @@ export function ApuracaoClient() {
           </div>
           <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
-              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
             ))}
           </div>
           <div className="relative mx-auto w-full lg:w-1/2">
@@ -284,12 +294,20 @@ export function ApuracaoClient() {
                 {shown ? <p className="mt-1 text-xs font-medium text-neutral-500">{formatPercent(shown.sectionsPct)}% das urnas apuradas</p> : null}
               </div>
             </div>
-            <label className="mb-3 block">
+            <label className="mb-2 block">
               <span className="sr-only">Estado</span>
-              <select value={selected} onChange={(event) => setSelected(event.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400">
+              <select value={selected} onChange={(event) => { setSelected(event.target.value); setQuery(""); }} className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400">
                 {office === "presidente" ? <option value="BR">Brasil</option> : null}
                 {STATES.map((state) => <option key={state.uf} value={state.uf}>{state.name} ({state.uf})</option>)}
               </select>
+            </label>
+
+            <label className="mb-3 flex items-center gap-2 rounded-xl border border-neutral-200 bg-white px-3 py-1.5">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden className="shrink-0 text-neutral-400">
+                <circle cx="11" cy="11" r="6.5" stroke="currentColor" strokeWidth="1.8" />
+                <path d="M16 16.5 20 20.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+              </svg>
+              <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar por nome" className="w-full bg-transparent text-xs text-neutral-950 outline-none placeholder:text-neutral-400" />
             </label>
 
             {error ? <p className="mb-3 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p> : null}
@@ -317,7 +335,7 @@ export function ApuracaoClient() {
             ) : null}
 
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
-              {rows.map((row) => {
+              {filteredRows.map((row) => {
                 const tone = row.sigla === "PT" ? "bg-red-600" : row.sigla === "PL" ? "bg-green-700" : "bg-neutral-800";
                 return (
                   <div key={`${row.sigla}-${row.numero}-${row.nome}`} className="rounded-2xl border border-neutral-200 px-3 py-2">
@@ -335,6 +353,7 @@ export function ApuracaoClient() {
                   </div>
                 );
               })}
+              {query.trim() && filteredRows.length === 0 ? <p className="px-1 py-3 text-center text-xs text-neutral-400">Nenhum candidato com esse nome.</p> : null}
             </div>
 
             {shown ? (
