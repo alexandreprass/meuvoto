@@ -53,10 +53,27 @@ export function tallyComplete(tally: Pick<Tally, "andamento" | "sectionsPct">, o
   return tally.sectionsPct >= 99.99;
 }
 
-/** Red when Lula is ahead, green when Flávio is ahead. A tie stays white. */
-export function winnerFill(pt: number, pl: number) {
-  if ((pt <= 0 && pl <= 0) || pt === pl) return "#ffffff";
-  return pt > pl ? PT_STRONG : PL_STRONG;
+const MAP_INK: [number, number, number] = [28, 27, 24];
+const LULA_RGB: [number, number, number] = [238, 45, 53];
+const FLAVIO_RGB: [number, number, number] = [21, 128, 61];
+const MARGIN_MIX = [0.4, 0.62, 0.82, 1];
+
+function mixRgb(target: [number, number, number], amount: number) {
+  const channel = (index: number) => Math.round(MAP_INK[index] + (target[index] - MAP_INK[index]) * amount).toString(16).padStart(2, "0");
+  return `#${channel(0)}${channel(1)}${channel(2)}`;
+}
+
+/** Four shades, from a lead under 10 points to a lead of 45 points or more. */
+export const LULA_RAMP = MARGIN_MIX.map((amount) => mixRgb(LULA_RGB, amount));
+export const FLAVIO_RAMP = MARGIN_MIX.map((amount) => mixRgb(FLAVIO_RGB, amount));
+export const MAP_EMPTY = "#211F1C";
+
+/** Red when Lula is ahead, green when Flávio is ahead. The shade follows the lead in points. A tie stays dark. */
+export function winnerFill(pt: number, pl: number, valid = pt + pl) {
+  if (valid <= 0 || pt === pl) return MAP_EMPTY;
+  const gap = Math.abs(pt - pl) / valid;
+  const step = gap < 0.1 ? 0 : gap < 0.25 ? 1 : gap < 0.45 ? 2 : 3;
+  return (pt > pl ? LULA_RAMP : FLAVIO_RAMP)[step];
 }
 
 export type PartyTally = {

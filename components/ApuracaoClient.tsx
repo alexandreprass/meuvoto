@@ -564,9 +564,18 @@ export function ApuracaoClient() {
 
   const fills = useMemo(() => {
     const next: Record<string, string> = {};
-    for (const [ibge, brief] of Object.entries(briefs)) next[ibge] = winnerFill(brief.pt, brief.pl);
+    for (const [ibge, brief] of Object.entries(briefs)) next[ibge] = winnerFill(brief.pt, brief.pl, brief.valid);
     return next;
   }, [briefs]);
+
+  const stateMarks = useMemo(() => {
+    const next: Record<string, string | null> = {};
+    for (const state of STATES) {
+      const tally = presidentByUf[state.uf];
+      next[state.uf] = tally && tally.valid > 0 ? String(Math.round((Math.max(tally.pt, tally.pl) / tally.valid) * 100)) : null;
+    }
+    return next;
+  }, [presidentByUf]);
 
   const byIbge = useMemo(() => {
     const next = new Map<string, Municipio>();
@@ -601,16 +610,16 @@ export function ApuracaoClient() {
     const brief = briefs[ibge];
     return (
       <>
-        <p className="mb-1.5 truncate text-xs font-semibold text-neutral-950">{mun.nome}</p>
-        {!brief ? <p className="text-[11px] text-neutral-500">Carregando votos</p> : null}
-        {brief && brief.top.length === 0 ? <p className="text-[11px] text-neutral-500">Sem votos publicados</p> : null}
+        <p className="mb-1.5 truncate text-xs font-semibold text-[#FAFAF9]">{mun.nome}</p>
+        {!brief ? <p className="text-[11px] text-[#A6A39C]">Carregando votos</p> : null}
+        {brief && brief.top.length === 0 ? <p className="text-[11px] text-[#A6A39C]">Sem votos publicados</p> : null}
         {brief && brief.top.length > 0 ? (
           <ul className="space-y-1">
             {brief.top.map((candidate) => (
               <li key={`${candidate.sq}-${candidate.numero}`} className="flex items-center gap-2">
                 <Portrait className="h-8 w-8 shrink-0 rounded-full object-cover object-top" sources={photoSources(candidate.sq, "presidente", mun.uf)} />
-                <span className="min-w-0 flex-1 truncate text-[11px] text-neutral-600">{candidate.nome}</span>
-                <span className="shrink-0 text-xs font-semibold text-neutral-950">{formatPercent(candidate.pct)}%</span>
+                <span className="min-w-0 flex-1 truncate text-[11px] text-[#D6D4CF]">{candidate.nome}</span>
+                <span className="shrink-0 text-xs font-semibold text-[#FAFAF9]">{formatPercent(candidate.pct)}%</span>
               </li>
             ))}
           </ul>
@@ -656,7 +665,7 @@ export function ApuracaoClient() {
         <section className="relative min-w-0 flex-1">
           <div className="mb-3">
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
-            <p className="mt-1 text-sm text-neutral-500">{round === 2 ? "O mapa mantém o 1º turno: vermelho onde Lula teve mais votos que Flávio, verde onde Flávio teve mais." : "Vermelho onde Lula teve mais votos que Flávio. Verde onde Flávio teve mais. O mapa é sempre da eleição para presidente."}</p>
+            <p className="mt-1 text-sm text-neutral-500">{round === 2 ? "O mapa mantém o 1º turno. Vermelho é Lula, verde é Flávio, e o tom mostra a vantagem: até 10, 25, 45 ou mais pontos." : "Vermelho onde Lula teve mais votos que Flávio, verde no sentido contrário. O tom mostra a vantagem: até 10, 25, 45 ou mais pontos. O mapa é sempre da eleição para presidente."}</p>
           </div>
           {round === 1 ? <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
@@ -664,7 +673,7 @@ export function ApuracaoClient() {
             ))}
           </div> : null}
           <div className="relative mx-auto w-full max-w-3xl">
-            <MunicipalMap fills={fills} activeIbge={round === 1 ? activeIbge : null} onSelect={onMapSelect} tip={mapTip} />
+            <MunicipalMap fills={fills} marks={stateMarks} activeIbge={round === 1 ? activeIbge : null} onSelect={onMapSelect} tip={mapTip} />
             {munProgress.total > 0 && munProgress.done < munProgress.total ? (
               <p className="mt-2 text-center text-xs text-neutral-400">Municípios {munProgress.done.toLocaleString("pt-BR")} de {munProgress.total.toLocaleString("pt-BR")}</p>
             ) : null}
