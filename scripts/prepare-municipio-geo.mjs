@@ -1,6 +1,6 @@
 import { writeFileSync } from "node:fs";
 import { geoIdentity, geoMercator, geoPath } from "d3-geo";
-import { feature } from "topojson-client";
+import { feature, mesh } from "topojson-client";
 import { topology } from "topojson-server";
 import { presimplify, simplify } from "topojson-simplify";
 
@@ -72,6 +72,22 @@ function ringPath(ring) {
   return `${d}Z`;
 }
 
+function ufOf(geometry) {
+  const id = String(geometry?.properties?.id ?? "");
+  return IBGE_UF[Number(id.slice(0, 2))] ?? "";
+}
+
+function linePath(geometry) {
+  const lines = geometry?.type === "LineString" ? [geometry.coordinates] : geometry?.type === "MultiLineString" ? geometry.coordinates : [];
+  let d = "";
+  for (const line of lines) {
+    if (line.length < 2) continue;
+    d += `M${num(line[0][0])} ${num(line[0][1])}`;
+    for (let index = 1; index < line.length; index += 1) d += `L${num(line[index][0])} ${num(line[index][1])}`;
+  }
+  return d;
+}
+
 function geometryPath(geometry) {
   const polygons = geometry?.type === "Polygon" ? [geometry.coordinates] : geometry?.type === "MultiPolygon" ? geometry.coordinates : [];
   let d = "";
@@ -140,6 +156,11 @@ for (const [uf, group] of byUf) {
   outlines.push(`["${uf}","${group.d}",${num(group.sx / group.sa)},${num(group.sy / group.sa)}]`);
 }
 
-const text = `{"w":${WIDTH},"h":${HEIGHT},"p":[${parts.join(",")}],"s":[${outlines.join(",")}]}`;
+const borders = linePath(mesh(simplified, simplified.objects.mun, (left, right) => {
+  const a = ufOf(left);
+  const b = ufOf(right);
+  return a !== "" && b !== "" && a !== b;
+}));
+const text = `{"w":${WIDTH},"h":${HEIGHT},"b":${JSON.stringify(borders)},"p":[${parts.join(",")}],"s":[${outlines.join(",")}]}`;
 writeFileSync(output, text);
 console.log(`${parts.length} municípios, ${outlines.length} estados, ${(text.length / 1024 / 1024).toFixed(2)} MB`);

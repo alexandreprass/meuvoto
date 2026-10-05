@@ -7,7 +7,7 @@ import { useNightMode } from "./ThemeToggle";
 
 type Shape = { ibge: string; d: string };
 type UfShape = { uf: string; d: string; x: number; y: number };
-type MapFile = { w: number; h: number; p: [string, string][]; s?: [string, string, number, number][] };
+type MapFile = { w: number; h: number; b?: string; p: [string, string][]; s?: [string, string, number, number][] };
 
 export type MapMode = "municipal" | "estadual";
 
@@ -32,7 +32,8 @@ const MUNI_STROKE = "#000000";
 const DAY_EMPTY = "#ffffff";
 const DAY_SEAM = "#000000";
 const DAY_ACTIVE = "#171717";
-const BORDER = "0.45";
+const BORDER = "0.25";
+const STATE_BORDER = "1.8";
 const ACTIVE_STROKE = "#FAFAF9";
 const ACTIVE_WIDTH = "1.7";
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -95,20 +96,44 @@ function paintStroke(path: SVGPathElement, active: boolean) {
   path.setAttribute("stroke-width", active ? ACTIVE_WIDTH : BORDER);
 }
 
-const PathLayer = memo(function PathLayer({ shapes }: { shapes: Shape[] }) {
+function paintCities(group: SVGGElement, fills: Record<string, string>, mode: MapMode, focusPrefix: string | null, night: boolean, activeIbge: string | null) {
+  const empty = night ? MAP_EMPTY : DAY_EMPTY;
+  const seam = night ? MUNI_STROKE : DAY_SEAM;
+  const activeColor = night ? ACTIVE_STROKE : DAY_ACTIVE;
+  const paths = group.querySelectorAll("path");
+  for (let index = 0; index < paths.length; index += 1) {
+    const path = paths[index];
+    if (!(path instanceof SVGPathElement)) continue;
+    const ibge = path.getAttribute("data-id") ?? "";
+    const raw = fills[ibge];
+    const shown = mode === "municipal" && (!focusPrefix || ibge.startsWith(focusPrefix));
+    if (shown) path.removeAttribute("display");
+    else path.setAttribute("display", "none");
+    path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
+    path.setAttribute("stroke", ibge === activeIbge ? activeColor : seam);
+    path.setAttribute("stroke-width", ibge === activeIbge ? ACTIVE_WIDTH : BORDER);
+  }
+}
+
+const PathLayer = memo(function PathLayer({ shapes, fills, mode, focusPrefix, night, activeIbge }: { shapes: Shape[]; fills: Record<string, string>; mode: MapMode; focusPrefix: string | null; night: boolean; activeIbge: string | null }) {
   const ref = useRef<SVGGElement>(null);
+  const paintArgs = useRef({ fills, mode, focusPrefix, night, activeIbge });
+
+  useLayoutEffect(() => {
+    // The path rebuild reads this. Writing it first keeps the new cities colored.
+    paintArgs.current = { fills, mode, focusPrefix, night, activeIbge };
+  });
 
   useLayoutEffect(() => {
     const group = ref.current;
     if (!group) return;
-    const night = nightOn();
     const fragment = document.createDocumentFragment();
     for (const shape of shapes) {
       const path = document.createElementNS(SVG_NS, "path");
       path.setAttribute("d", shape.d);
       path.setAttribute("data-id", shape.ibge);
-      path.setAttribute("fill", night ? MAP_EMPTY : DAY_EMPTY);
-      path.setAttribute("stroke", night ? MUNI_STROKE : DAY_SEAM);
+      path.setAttribute("fill", MAP_EMPTY);
+      path.setAttribute("stroke", MUNI_STROKE);
       path.setAttribute("stroke-width", BORDER);
       path.setAttribute("stroke-linejoin", "round");
       path.setAttribute("vector-effect", "non-scaling-stroke");
@@ -116,7 +141,15 @@ const PathLayer = memo(function PathLayer({ shapes }: { shapes: Shape[] }) {
       fragment.appendChild(path);
     }
     group.replaceChildren(fragment);
+    const args = paintArgs.current;
+    paintCities(group, args.fills, args.mode, args.focusPrefix, args.night, args.activeIbge);
   }, [shapes]);
+
+  useLayoutEffect(() => {
+    const group = ref.current;
+    if (!group) return;
+    paintCities(group, fills, mode, focusPrefix, night, activeIbge);
+  }, [activeIbge, fills, focusPrefix, mode, night]);
 
   return <g ref={ref} className="munis" />;
 });
@@ -149,6 +182,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   const night = useNightMode();
   const [shapes, setShapes] = useState<Shape[] | null>(null);
   const [states, setStates] = useState<UfShape[]>([]);
+  const [borders, setBorders] = useState("");
   const [view, setView] = useState<View>(HOME);
   const [cursor, setCursor] = useState<{ kind: "city" | "state"; id: string; x: number; y: number; flipX: boolean; flipY: boolean } | null>(null);
   const wrapRef = useRef<HTMLDivElement>(null);
@@ -174,32 +208,15 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       .then((file: MapFile) => {
         setShapes(file.p.map(([ibge, d]) => ({ ibge, d })));
         setStates((file.s ?? []).map(([uf, d, x, y]) => ({ uf, d, x, y })));
+        setBorders(file.b ?? "");
       })
       .catch(() => setShapes(null));
   }, []);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     const svg = svgRef.current;
     if (!svg || !shapes) return;
     const empty = night ? MAP_EMPTY : DAY_EMPTY;
-    const seam = night ? MUNI_STROKE : DAY_SEAM;
-    const hot = night ? "rgba(250,250,249,0.9)" : "rgba(23,23,23,0.8)";
-    const activeColor = night ? ACTIVE_STROKE : DAY_ACTIVE;
-    svg.setAttribute("data-fills", String(Object.keys(fills).length));
-    const paths = svg.querySelectorAll("g.munis path");
-    for (let index = 0; index < paths.length; index += 1) {
-      const path = paths[index];
-      const ibge = path.getAttribute("data-id") ?? "";
-      const raw = fills[ibge];
-      const shown = mode === "municipal" && (!focusPrefix || ibge.startsWith(focusPrefix));
-      if (shown) path.removeAttribute("display");
-      else path.setAttribute("display", "none");
-      path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
-      const on = ibge === activeRef.current;
-      const over = hoverNode.current === path && !on;
-      path.setAttribute("stroke", on ? activeColor : over ? hot : seam);
-      path.setAttribute("stroke-width", on ? ACTIVE_WIDTH : over ? "1.15" : BORDER);
-    }
     const stateActive = night ? ACTIVE_STROKE : "#000000";
     svg.querySelectorAll("g.estados path").forEach((node) => {
       if (!(node instanceof SVGPathElement)) return;
@@ -214,7 +231,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       node.setAttribute("stroke-width", selected ? "2.2" : "0.8");
       node.setAttribute("pointer-events", mode === "estadual" ? "auto" : "none");
     });
-  }, [activeUf, fills, focusPrefix, focusUf, mode, night, shapes, stateFills]);
+  }, [activeUf, focusUf, mode, night, shapes, stateFills]);
 
   useEffect(() => {
     if (mode !== "municipal" || !focusUf || !svgRef.current) {
@@ -274,7 +291,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       hoverNode.current = target;
       if (ibge !== activeRef.current) {
         target.setAttribute("stroke", "#000000");
-        target.setAttribute("stroke-width", "1.8");
+        target.setAttribute("stroke-width", "0.6");
       }
     }
     const x = event.clientX - rect.left;
@@ -358,8 +375,11 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
         onClick={onShapeClick}
         onMouseLeave={() => { clearHover(); setCursor(null); }}
       >
-        {mode === "municipal" ? <PathLayer shapes={shapes} /> : null}
+        {mode === "municipal" ? <PathLayer shapes={shapes} fills={fills} mode={mode} focusPrefix={focusPrefix} night={night} activeIbge={activeIbge} /> : null}
         <StateLayer states={states} />
+        {borders ? (
+          <path d={borders} fill="none" stroke="#000000" strokeWidth={STATE_BORDER} strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />
+        ) : null}
         {showMarks ? (
           <g style={{ pointerEvents: "none" }} fontFamily="inherit">
             {states.filter((pin) => mode !== "municipal" || !focusUf || pin.uf === focusUf).map((pin) => {

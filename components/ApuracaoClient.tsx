@@ -598,7 +598,7 @@ export function ApuracaoClient() {
               ))}
             </div> : null}
           </div>
-          <div className="relative mx-auto w-full max-w-3xl">
+          <div className="relative mx-auto w-full max-w-[28.8rem]">
             <div className="mb-1 flex flex-wrap items-center gap-1.5 text-[11px]">
               <span className="font-semibold uppercase tracking-wider text-neutral-400">Mapa:</span>
               <button type="button" onClick={() => setMapMode("municipal")} className={`rounded-full px-2 py-0.5 font-semibold ${mapMode === "municipal" ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>Municipal</button>
