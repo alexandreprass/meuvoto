@@ -4,14 +4,19 @@ import Link from "next/link";
 import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ApuracaoBadge } from "./ApuracaoButton";
 import { BrazilMap, type MapStamp } from "./BrazilMap";
+import { PartyBadge } from "./PartyBadge";
 import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
+import { assetUrl } from "@/lib/asset-url";
 import { STATES, UF_MAP, formatPercent, formatVotes } from "@/lib/states";
+import { RUNOFF_UFS, SEGUNDO_TURNO } from "@/lib/segundo-turno";
 import {
   andamentoLabel,
   isProportional,
   leadVisual,
   parseResult,
   resultUrl,
+  type CandidateTally,
+  type PartyTally,
   type Tally,
 } from "@/lib/apuracao";
 
@@ -135,7 +140,190 @@ function RollingText({ value, place }: { value: string; place: string }) {
   );
 }
 
+const PLACEHOLDER = "/candidates/senators/placeholder.svg";
+
+const CURATED_PHOTOS: Record<string, string> = {
+  "280002551544": "/candidates/flavio-bolsonaro.jpg",
+  "280002542548": "/candidates/lula.jpg",
+  "280002540694": "/candidates/renan-santos.jpg",
+  "280002551547": "/candidates/augusto-cury.jpg",
+  "280002551932": "/candidates/ronaldo-caiado.jpg",
+  "280002539826": "/candidates/zema.jpg",
+};
+
+type ResultRow = CandidateTally | PartyTally;
+
+function rowSq(row: ResultRow) {
+  return "sq" in row ? row.sq : "";
+}
+
+function rowSituacao(row: ResultRow) {
+  return "situacao" in row ? row.situacao : "";
+}
+
+/** TSE fills cand.st on state races. For a finished majoritarian count it can still be blank, as with presidente. */
+function displayedSituacao(row: ResultRow, rows: ResultRow[], sectionsPct: number, proportional: boolean) {
+  const own = rowSituacao(row);
+  if (own || proportional || sectionsPct < 99.9) return own;
+  const people = rows.filter((item): item is CandidateTally => "sq" in item && item.sq !== "");
+  if (people.length < 2 || people.some((item) => item.situacao)) return "";
+  const [first, second] = people;
+  if (first.pct > 50) return row === first ? "Eleito" : "Não eleito";
+  if (row === first || row === second) return "2º turno";
+  return "Não eleito";
+}
+
+function tsePhoto(office: OfficeId, uf: string, sq: string) {
+  const ele = office === "presidente" ? "6257" : "6259";
+  const code = office === "presidente" ? "br" : uf.toLowerCase();
+  return `https://resultados.tse.jus.br/oficial/ele2026/${ele}/fotos/${code}/${sq}.jpeg`;
+}
+
+function photoSources(sq: string, office: OfficeId, uf: string) {
+  if (!sq) return [PLACEHOLDER];
+  const remote = tsePhoto(office, uf, sq);
+  const curated = CURATED_PHOTOS[sq];
+  if (curated) return [curated, remote, PLACEHOLDER];
+  return [`/candidate-photos/${sq}.jpg`, `/candidate-photos/${sq}.png`, remote, PLACEHOLDER];
+}
+
+function situacaoTone(situacao: string) {
+  if (situacao.startsWith("Eleito")) return "bg-emerald-700 text-white";
+  if (situacao.includes("turno")) return "bg-amber-600 text-white";
+  if (situacao === "Suplente") return "bg-sky-800 text-white";
+  return "bg-neutral-500 text-white";
+}
+
+function Portrait({ sources }: { sources: string[] }) {
+  const list = sources.length > 0 ? sources : [PLACEHOLDER];
+  const [step, setStep] = useState(0);
+  const chosen = list[Math.min(step, list.length - 1)];
+  return (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={chosen.startsWith("https://") ? chosen : assetUrl(chosen)}
+      alt=""
+      loading="lazy"
+      decoding="async"
+      referrerPolicy="no-referrer"
+      onError={() => setStep((current) => (current >= list.length - 1 ? current : current + 1))}
+      className="h-12 w-12 shrink-0 rounded-full object-cover object-top ring-2 ring-white shadow-sm"
+    />
+  );
+}
+
+function SituacaoBadge({ situacao }: { situacao: string }) {
+  if (!situacao) return null;
+  return (
+    <span className={`mt-1 inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${situacaoTone(situacao)}`}>
+      {situacao}
+    </span>
+  );
+}
+
+function TurnoDrawer({ round, onChange }: { round: 1 | 2; onChange: (round: 1 | 2) => void }) {
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    if (!open) return;
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open]);
+
+  function choose(next: 1 | 2) {
+    onChange(next);
+    setOpen(false);
+  }
+
+  return (
+    <>
+      {open ? (
+        <button type="button" aria-label="Fechar menu de turnos" className="fixed inset-0 z-30 bg-black/20" onClick={() => setOpen(false)} />
+      ) : null}
+      <div className={`fixed left-0 top-1/2 z-40 -translate-y-1/2 overflow-hidden rounded-r-2xl border border-l-0 border-neutral-200 bg-white shadow-xl transition-[width] duration-300 ease-out ${open ? "w-64" : "w-10"}`}>
+        <div className={`flex w-64 items-stretch transition-transform duration-300 ease-out ${open ? "translate-x-0" : "-translate-x-[calc(100%-2.5rem)]"}`}>
+        <div inert={!open} className="flex min-w-0 flex-1 flex-col justify-center gap-2 py-3 pl-3 pr-2">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">Turno</p>
+          {([1, 2] as const).map((item) => (
+            <button
+              key={item}
+              type="button"
+              aria-pressed={round === item}
+              onClick={() => choose(item)}
+              className={`rounded-full px-3 py-2 text-left text-sm font-semibold ${round === item ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-600"}`}
+            >
+              {item}º Turno
+            </button>
+          ))}
+        </div>
+        <button
+          type="button"
+          aria-expanded={open}
+          aria-label={open ? "Fechar menu de turnos" : "Abrir menu de turnos"}
+          onClick={() => setOpen((current) => !current)}
+          className="flex w-10 shrink-0 items-center justify-center border-l border-neutral-200 text-neutral-950"
+        >
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path d={open ? "M14.5 6 8.5 12l6 6" : "M9.5 6 15.5 12l-6 6"} stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        </button>
+        </div>
+      </div>
+    </>
+  );
+}
+
+function SecondRoundPanel({ focus, onFocus }: { focus: string; onFocus: (uf: string) => void }) {
+  const contests = focus === "ALL" ? SEGUNDO_TURNO : SEGUNDO_TURNO.filter((contest) => contest.uf === focus);
+  const shown = contests.length > 0 ? contests : SEGUNDO_TURNO;
+
+  return (
+    <div className="rounded-3xl border border-neutral-200 bg-white p-3 sm:p-4 lg:sticky lg:top-24">
+      <div className="mb-3">
+        <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">25 de outubro de 2026</p>
+        <h2 className="text-base font-semibold text-neutral-950">2º turno</h2>
+        <p className="text-xs text-neutral-500">Presidente e os estados que voltam às urnas. O TSE ainda não liberou a apuração do segundo turno.</p>
+      </div>
+      <label className="mb-3 block">
+        <span className="sr-only">Disputa do segundo turno</span>
+        <select value={focus} onChange={(event) => onFocus(event.target.value)} className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-1.5 text-xs text-neutral-950 outline-none focus:border-neutral-400">
+          <option value="ALL">Todos os segundos turnos</option>
+          {SEGUNDO_TURNO.map((contest) => (
+            <option key={contest.uf} value={contest.uf}>{contest.place} — {contest.office}</option>
+          ))}
+        </select>
+      </label>
+      <div className="max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+        {shown.map((contest) => (
+          <section key={contest.uf}>
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{contest.place}</p>
+            <h3 className="mb-2 text-sm font-semibold text-neutral-950">{contest.office}</h3>
+            <ul className="flex flex-col gap-1.5">
+              {contest.candidates.map((candidate) => (
+                <li key={`${contest.uf}-${candidate.number}`} className="flex items-center gap-2.5 rounded-xl border border-black p-2">
+                  <Portrait sources={[candidate.photo, PLACEHOLDER]} />
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-semibold text-neutral-950">{candidate.name}</span>
+                    <span className="mt-0.5 block truncate text-[10px] uppercase tracking-wide text-neutral-500">{candidate.party}</span>
+                  </div>
+                  <span className="shrink-0 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-lg font-extrabold tabular-nums tracking-wide text-emerald-900 ring-1 ring-emerald-200">{candidate.number}</span>
+                  <PartyBadge party={candidate.party} size={30} />
+                </li>
+              ))}
+            </ul>
+          </section>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export function ApuracaoClient() {
+  const [round, setRound] = useState<1 | 2>(1);
+  const [roundFocus, setRoundFocus] = useState("ALL");
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selected, setSelected] = useState<string>("BR");
   const [presidentByUf, setPresidentByUf] = useState<Record<string, Tally>>({});
@@ -147,13 +335,14 @@ export function ApuracaoClient() {
   useEffect(() => {
     let stopped = false;
     let running = false;
-    const proportional = isProportional(office);
+    const pollOffice = round === 2 ? "presidente" : office;
+    const proportional = isProportional(pollOffice);
     const jobs = [
       ...STATES.map((state) => ({ bucket: "president" as const, uf: state.uf, office: "presidente" as const })),
       { bucket: "president" as const, uf: "BR", office: "presidente" as const },
-      ...(office === "presidente"
+      ...(pollOffice === "presidente"
         ? []
-        : STATES.map((state) => ({ bucket: "office" as const, uf: state.uf, office }))),
+        : STATES.map((state) => ({ bucket: "office" as const, uf: state.uf, office: pollOffice }))),
     ];
 
     async function tick() {
@@ -179,7 +368,7 @@ export function ApuracaoClient() {
           for (const [job, tally] of ready) if (job.bucket === "president") next[job.uf] = tally;
           return next;
         });
-        if (office !== "presidente") {
+        if (pollOffice !== "presidente") {
           setByUf((current) => {
             const next = { ...current };
             for (const [job, tally] of ready) if (job.bucket === "office") next[job.uf] = tally;
@@ -201,7 +390,7 @@ export function ApuracaoClient() {
       stopped = true;
       clearInterval(timer);
     };
-  }, [office]);
+  }, [office, round]);
 
   const panelByUf = office === "presidente" ? presidentByUf : byUf;
 
@@ -222,7 +411,9 @@ export function ApuracaoClient() {
     return { fills: nextFills, stamps: nextStamps };
   }, [presidentByUf]);
 
-  const activeUf = selected !== "BR" ? selected : null;
+  const activeUf = round === 2
+    ? (roundFocus !== "ALL" && roundFocus !== "BR" ? roundFocus : null)
+    : (selected !== "BR" ? selected : null);
   const rows = shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
   const filteredRows = useMemo(() => {
     const needle = fold(query.trim());
@@ -235,6 +426,7 @@ export function ApuracaoClient() {
 
   return (
     <div className="flex min-h-full flex-col bg-white">
+      <TurnoDrawer round={round} onChange={setRound} />
       <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center gap-2">
@@ -255,14 +447,14 @@ export function ApuracaoClient() {
       <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-10 lg:py-8">
         <section className="relative min-w-0 flex-1">
           <div className="mb-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">Apuração para {OFFICES[office].label.toLowerCase()}</h1>
-            <p className="mt-1 text-sm text-neutral-500">O mapa compara Lula e Flávio Bolsonaro. Cor forte quando a vantagem passa de 10 pontos. Cor fraca até 10 pontos.</p>
+            <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
+            <p className="mt-1 text-sm text-neutral-500">O mapa compara Lula e Flávio Bolsonaro no 1º turno. Cor forte quando a vantagem passa de 10 pontos. Cor fraca até 10 pontos.</p>
           </div>
-          <div className="mb-3 flex gap-1 overflow-x-auto">
+          {round === 1 ? <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
               <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
             ))}
-          </div>
+          </div> : null}
           <div className="relative mx-auto w-full lg:w-1/2">
             {Object.keys(presidentByUf).length > 0 ? (
               <BrazilMap
@@ -270,7 +462,13 @@ export function ApuracaoClient() {
                 fills={fills}
                 stamps={stamps}
                 onHover={() => undefined}
-                onSelect={(uf) => setSelected((current) => (current === uf && office === "presidente" ? "BR" : uf))}
+                onSelect={(uf) => {
+                  if (round === 2) {
+                    setRoundFocus((current) => (RUNOFF_UFS.has(uf) ? (current === uf ? "ALL" : uf) : "ALL"));
+                    return;
+                  }
+                  setSelected((current) => (current === uf && office === "presidente" ? "BR" : uf));
+                }}
               />
             ) : (
               <div className="flex aspect-square w-full items-center justify-center rounded-3xl bg-neutral-50">
@@ -278,10 +476,11 @@ export function ApuracaoClient() {
               </div>
             )}
           </div>
-          <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para ver os votos</p>
+          <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">{round === 2 ? "Toque em um estado com segundo turno" : "Toque em um estado para ver os votos"}</p>
         </section>
 
         <aside className="w-full shrink-0 lg:w-[520px]">
+          {round === 2 ? <SecondRoundPanel focus={roundFocus} onFocus={setRoundFocus} /> : (
           <div className="rounded-3xl border border-neutral-200 bg-white p-3 sm:p-4 lg:sticky lg:top-24">
             <div className="mb-3 flex items-start justify-between gap-3">
               <div>
@@ -337,19 +536,27 @@ export function ApuracaoClient() {
             <div className="max-h-[70vh] space-y-2 overflow-y-auto pr-1">
               {filteredRows.map((row) => {
                 const tone = row.sigla === "PT" ? "bg-red-600" : row.sigla === "PL" ? "bg-green-700" : "bg-neutral-800";
+                const sq = rowSq(row);
+                const situacao = displayedSituacao(row, rows, shown?.sectionsPct ?? 0, isProportional(office));
                 return (
                   <div key={`${row.sigla}-${row.numero}-${row.nome}`} className="rounded-2xl border border-neutral-200 px-3 py-2">
-                    <div className="flex items-baseline justify-between gap-3">
-                      <p className="min-w-0 truncate text-sm font-semibold text-neutral-950">
-                        <span className="mr-2 text-neutral-400">{row.numero}</span>{row.nome}
-                        <span className="ml-2 text-xs font-medium text-neutral-500">{row.sigla}</span>
-                      </p>
-                      <p className="shrink-0 text-sm font-semibold text-neutral-950">{formatPercent(row.pct)}%</p>
+                    <div className="flex items-center gap-2.5">
+                      {sq ? <Portrait key={sq} sources={photoSources(sq, office, shown?.uf || selected)} /> : <PartyBadge party={row.sigla} size={48} />}
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-baseline justify-between gap-3">
+                          <p className="min-w-0 truncate text-sm font-semibold text-neutral-950">
+                            <span className="mr-2 text-neutral-400">{row.numero}</span>{row.nome}
+                            <span className="ml-2 text-xs font-medium text-neutral-500">{row.sigla}</span>
+                          </p>
+                          <p className="shrink-0 text-sm font-semibold text-neutral-950">{formatPercent(row.pct)}%</p>
+                        </div>
+                        <SituacaoBadge situacao={situacao} />
+                        <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-100">
+                          <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(0, Math.min(100, row.pct))}%` }} />
+                        </div>
+                        <p className="mt-1 text-xs text-neutral-500">{formatVotes(row.votos)} votos</p>
+                      </div>
                     </div>
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-neutral-100">
-                      <div className={`h-full rounded-full ${tone}`} style={{ width: `${Math.max(0, Math.min(100, row.pct))}%` }} />
-                    </div>
-                    <p className="mt-1 text-xs text-neutral-500">{formatVotes(row.votos)} votos</p>
                   </div>
                 );
               })}
@@ -366,6 +573,7 @@ export function ApuracaoClient() {
               <a href={TSE_PAGE[office]} target="_blank" rel="noopener noreferrer" className="underline">Fonte</a>
             </p>
           </div>
+          )}
         </aside>
       </main>
     </div>

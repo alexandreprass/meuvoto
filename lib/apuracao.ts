@@ -44,6 +44,9 @@ export type CandidateTally = {
   numero: string;
   votos: number;
   pct: number;
+  sq: string;
+  /** TSE cand.st: Eleito, Eleito por QP, Eleito por média, Não eleito, Suplente, 2º turno, or blank. */
+  situacao: string;
 };
 
 export type Tally = {
@@ -62,7 +65,7 @@ export type Tally = {
   candidates: CandidateTally[];
 };
 
-type RawCand = { n?: string; nm?: string; nmu?: string; vap?: string };
+type RawCand = { n?: string; nm?: string; nmu?: string; vap?: string; sqcand?: string; st?: string };
 type RawParty = { n?: string; sg?: string; nm?: string; tvtn?: string; tvtl?: string; cand?: RawCand[] };
 type RawFile = {
   dg?: string;
@@ -101,6 +104,8 @@ export function parseResult(json: RawFile, uf: string, proportional: boolean): T
           sigla,
           numero: String(cand.n ?? ""),
           votos: vap,
+          sq: String(cand.sqcand ?? ""),
+          situacao: (cand.st ?? "").trim(),
         });
       }
       if (!proportional || votos === 0) votos = nominal;
