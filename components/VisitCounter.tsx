@@ -39,7 +39,7 @@ export function VisitCounter() {
   const label = value === null ? "..." : Number.isFinite(Number(value)) ? Number(value).toLocaleString("pt-BR") : value;
 
   return (
-    <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-600" title="Visitas nesta página">
+    <span className="fixed right-3 top-3 z-50 inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-white/90 px-2.5 py-1 text-xs font-medium text-neutral-600 shadow-sm backdrop-blur-md dark:border-neutral-700 dark:bg-neutral-900/90 dark:text-neutral-200" title="Visitas nesta página">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
         <path d="M2.5 12S6.5 5.5 12 5.5 21.5 12 21.5 12 17.5 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" strokeWidth="1.8" />
         <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />

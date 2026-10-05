@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist } from "next/font/google";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { VisitCounter } from "@/components/VisitCounter";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,10 +34,7 @@ export default function RootLayout({
         <script async src="https://www.googletagmanager.com/gtag/js?id=G-NK9ZW8V0P7" />
         <script
           dangerouslySetInnerHTML={{
-            __html: `window.dataLayer = window.dataLayer || [];
-function gtag(){dataLayer.push(arguments);}
-gtag('js', new Date());
-gtag('config', 'G-NK9ZW8V0P7');`,
+            __html: `window.dataLayer = window.dataLayer || [];\nfunction gtag(){dataLayer.push(arguments);}\ngtag('js', new Date());\ngtag('config', 'G-NK9ZW8V0P7');`,
           }}
         />
         <script
@@ -47,6 +45,7 @@ gtag('config', 'G-NK9ZW8V0P7');`,
       </head>
       <body className="min-h-full bg-white font-sans text-neutral-950">
         {children}
+        <VisitCounter />
         <ThemeToggle />
       </body>
     </html>

@@ -3,7 +3,6 @@
 import Link from "next/link";
 import { OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { ApuracaoButton } from "./ApuracaoButton";
-import { VisitCounter } from "./VisitCounter";
 
 const LABELS: Record<OfficeId, string> = {
   presidente: "Presidente",
@@ -22,7 +21,7 @@ type Props = {
 export function Header({ office, onOffice, onBallot }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
-      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between sm:px-6">
+      <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 pr-16 sm:flex-row sm:items-center sm:justify-between sm:px-6">
         <div className="flex min-w-0 flex-1 items-center gap-4">
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-950 text-white">
@@ -37,7 +36,6 @@ export function Header({ office, onOffice, onBallot }: Props) {
           </nav>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
-          <VisitCounter />
           <ApuracaoButton />
           <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
         </div>
