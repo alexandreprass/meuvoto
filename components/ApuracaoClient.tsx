@@ -590,11 +590,11 @@ export function ApuracaoClient() {
 
       <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 pt-2 pb-4 sm:px-6 lg:flex-row lg:items-start lg:gap-8 lg:pt-3">
         <section className="relative min-w-0 flex-1">
-          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <h1 className="text-lg font-semibold tracking-tight text-neutral-950">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
-            {round === 1 ? <div className="flex gap-1 overflow-x-auto">
+          <div className="mb-2 flex items-center gap-3">
+            <h1 className="shrink-0 whitespace-nowrap text-lg font-semibold tracking-tight text-neutral-950">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
+            {round === 1 ? <div className="flex min-w-0 flex-1 justify-end gap-1 overflow-x-auto">
               {OFFICES_ORDER.map((id) => (
-                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
               ))}
             </div> : null}
           </div>
