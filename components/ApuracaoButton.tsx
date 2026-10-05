@@ -15,7 +15,7 @@ function Mark() {
 
 export function ApuracaoButton() {
   return (
-    <Link href="/apuracao" target="_blank" rel="noopener noreferrer" className={`${className} hover:bg-red-50`}>
+    <Link href="/apuracao" className={`${className} hover:bg-red-50`}>
       <Mark />
     </Link>
   );
