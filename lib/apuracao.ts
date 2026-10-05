@@ -2,8 +2,10 @@ import type { OfficeId } from "@/lib/offices";
 
 const TSE_ORIGIN = "https://resultados.tse.jus.br/oficial/ele2026";
 
-const PT_RED = "#DC2626";
-const PL_GREEN = "#15803D";
+const PT_STRONG = "#DC2626";
+const PT_WEAK = "#FCA5A5";
+const PL_STRONG = "#15803D";
+const PL_WEAK = "#86EFAC";
 
 type FileSpec = { ele: string; cargo: string; proportional: boolean };
 
@@ -183,19 +185,15 @@ export function combineTallies(rows: Tally[], uf: string): Tally {
   };
 }
 
-function mix(hex: string, amount: number) {
-  const channel = (start: number) => Math.round(255 + (start - 255) * amount).toString(16).padStart(2, "0");
-  return `#${channel(parseInt(hex.slice(1, 3), 16))}${channel(parseInt(hex.slice(3, 5), 16))}${channel(parseInt(hex.slice(5, 7), 16))}`;
-}
-
-/** White when PT and PL are tied or there are no votes. Stronger red or green as the gap grows. */
-export function leadVisual(pt: number, pl: number) {
-  const total = pt + pl;
-  if (total <= 0 || pt === pl) return { fill: "#ffffff", ink: "#171717" };
-  const amount = Math.abs(pt - pl) / total;
+/** White on a tie or with no votes. Strong red or green above a 10-point lead; pale red or green up to 10 points. */
+export function leadVisual(pt: number, pl: number, valid = pt + pl) {
+  if (valid <= 0 || pt === pl) return { fill: "#ffffff", ink: "#171717" };
+  const gap = (Math.abs(pt - pl) / valid) * 100;
+  const strong = gap > 10;
+  const lula = pt > pl;
   return {
-    fill: mix(pt > pl ? PT_RED : PL_GREEN, amount),
-    ink: amount > 0.75 ? "#ffffff" : "#171717",
+    fill: lula ? (strong ? PT_STRONG : PT_WEAK) : (strong ? PL_STRONG : PL_WEAK),
+    ink: strong ? "#ffffff" : "#171717",
   };
 }
 

@@ -122,7 +122,7 @@ export function ApuracaoClient() {
     const nextStamps: Record<string, MapStamp> = {};
     for (const state of STATES) {
       const row = presidentByUf[state.uf];
-      const visual = leadVisual(row?.pt ?? 0, row?.pl ?? 0);
+      const visual = leadVisual(row?.pt ?? 0, row?.pl ?? 0, row?.valid ?? 0);
       nextFills[state.uf] = visual.fill;
       nextStamps[state.uf] = { ink: visual.ink };
     }
@@ -164,7 +164,7 @@ export function ApuracaoClient() {
         <section className="relative min-w-0 flex-1">
           <div className="mb-3">
             <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">Apuração para {OFFICES[office].label.toLowerCase()}</h1>
-            <p className="mt-1 text-sm text-neutral-500">O mapa compara Lula e Flávio Bolsonaro. Vermelho quando Lula está na frente, verde quando Flávio Bolsonaro está na frente.</p>
+            <p className="mt-1 text-sm text-neutral-500">O mapa compara Lula e Flávio Bolsonaro. Cor forte quando a vantagem passa de 10 pontos. Cor fraca até 10 pontos.</p>
           </div>
           <div className="mb-3 flex gap-1 overflow-x-auto">
             {OFFICES_ORDER.map((id) => (
@@ -187,9 +187,11 @@ export function ApuracaoClient() {
             )}
           </div>
           <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-neutral-500">
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-red-600" /> LULA</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#DC2626" }} /> Lula +10</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#FCA5A5" }} /> Lula até 10</span>
             <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-white" /> Empate</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-green-700" /> FLAVIO BOLSONARO</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#86EFAC" }} /> Flávio até 10</span>
+            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#15803D" }} /> Flávio +10</span>
           </div>
           <p className="mt-2 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para ver os votos</p>
         </section>
