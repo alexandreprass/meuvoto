@@ -32,7 +32,7 @@ const MUNI_STROKE = "#000000";
 const DAY_EMPTY = "#ffffff";
 const DAY_SEAM = "#000000";
 const DAY_ACTIVE = "#171717";
-const BORDER = "1";
+const BORDER = "0.45";
 const ACTIVE_STROKE = "#FAFAF9";
 const ACTIVE_WIDTH = "1.7";
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -185,12 +185,13 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     const seam = night ? MUNI_STROKE : DAY_SEAM;
     const hot = night ? "rgba(250,250,249,0.9)" : "rgba(23,23,23,0.8)";
     const activeColor = night ? ACTIVE_STROKE : DAY_ACTIVE;
+    svg.setAttribute("data-fills", String(Object.keys(fills).length));
     const paths = svg.querySelectorAll("g.munis path");
     for (let index = 0; index < paths.length; index += 1) {
       const path = paths[index];
       const ibge = path.getAttribute("data-id") ?? "";
       const raw = fills[ibge];
-      const shown = mode !== "municipal" || !focusPrefix || ibge.startsWith(focusPrefix);
+      const shown = mode === "municipal" && (!focusPrefix || ibge.startsWith(focusPrefix));
       if (shown) path.removeAttribute("display");
       else path.setAttribute("display", "none");
       path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
@@ -204,17 +205,14 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       if (!(node instanceof SVGPathElement)) return;
       const uf = node.getAttribute("data-uf") ?? "";
       const selected = mode === "estadual" && uf === activeUf;
-      if (mode === "municipal" && focusUf && uf !== focusUf) node.setAttribute("display", "none");
+      const hideState = mode !== "estadual" || (focusUf && uf !== focusUf);
+      if (hideState) node.setAttribute("display", "none");
       else node.removeAttribute("display");
-      if (mode === "estadual") {
-        node.setAttribute("fill", stateFills[uf] || empty);
-        node.setAttribute("pointer-events", "auto");
-      } else {
-        node.setAttribute("fill", "none");
-        node.setAttribute("pointer-events", "none");
-      }
-      node.setAttribute("stroke", selected ? stateActive : "#000000");
-      node.setAttribute("stroke-width", selected ? "2.4" : "1.15");
+      const color = stateFills[uf] || empty;
+      node.setAttribute("fill", color);
+      node.setAttribute("stroke", selected ? stateActive : color);
+      node.setAttribute("stroke-width", selected ? "2.2" : "0.8");
+      node.setAttribute("pointer-events", mode === "estadual" ? "auto" : "none");
     });
   }, [activeUf, fills, focusPrefix, focusUf, mode, night, shapes, stateFills]);
 
@@ -226,7 +224,12 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     }
     const node = svgRef.current.querySelector(`path[data-uf="${focusUf}"]`);
     if (!(node instanceof SVGGraphicsElement)) return;
-    const next = fitView(node.getBBox());
+    const hidden = node.getAttribute("display");
+    node.removeAttribute("display");
+    const box = node.getBBox();
+    if (hidden) node.setAttribute("display", hidden);
+    if (box.width < 1 || box.height < 1) return;
+    const next = fitView(box);
     fittedRef.current = next;
     setView(next);
   }, [focusUf, mode, states]);
