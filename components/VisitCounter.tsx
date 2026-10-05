@@ -3,36 +3,43 @@
 import { useEffect, useState } from "react";
 
 const HIT_URL = "https://countapi.mileshilliard.com/api/v1/hit/meuvoto.digital";
+const GET_URL = "https://countapi.mileshilliard.com/api/v1/get/meuvoto.digital";
+const COUNTED_KEY = "meuvoto-visitas-counted";
 
 export function VisitCounter() {
   const [value, setValue] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    const storageKey = "meuvoto-visitas";
-    const cached = sessionStorage.getItem(storageKey);
 
-    const show = (next: string) => {
-      if (!cancelled) setValue(next);
+    const show = (next: unknown) => {
+      const text = String(next ?? "");
+      if (!cancelled && text) setValue(text);
     };
 
-    if (cached) {
-      show(cached);
-      return;
-    }
+    const read = () =>
+      fetch(GET_URL)
+        .then((response) => response.json())
+        .then((data) => show(data.value))
+        .catch(() => {
+          if (!cancelled) setValue((current) => current ?? "—");
+        });
 
-    fetch(HIT_URL)
-      .then((response) => response.json())
-      .then((data) => {
-        const next = String(data.value ?? "");
-        if (!next) return;
-        sessionStorage.setItem(storageKey, next);
-        show(next);
-      })
-      .catch(() => show("—"));
+    const start = sessionStorage.getItem(COUNTED_KEY)
+      ? read()
+      : fetch(HIT_URL)
+          .then((response) => response.json())
+          .then((data) => {
+            sessionStorage.setItem(COUNTED_KEY, "1");
+            show(data.value);
+          })
+          .catch(() => read());
 
+    void start;
+    const timer = window.setInterval(() => void read(), 15000);
     return () => {
       cancelled = true;
+      window.clearInterval(timer);
     };
   }, []);
 
