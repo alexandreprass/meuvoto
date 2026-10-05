@@ -36,7 +36,7 @@ export function VisitCounter() {
           .catch(() => read());
 
     void start;
-    const timer = window.setInterval(() => void read(), 15000);
+    const timer = window.setInterval(() => void read(), 5000);
     return () => {
       cancelled = true;
       window.clearInterval(timer);
