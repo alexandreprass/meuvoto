@@ -6,6 +6,24 @@ const HIT_URL = "https://countapi.mileshilliard.com/api/v1/hit/meuvoto.digital";
 const GET_URL = "https://countapi.mileshilliard.com/api/v1/get/meuvoto.digital";
 const COUNTED_KEY = "meuvoto-visitas-counted";
 
+function alreadyCounted() {
+  try {
+    if (localStorage.getItem(COUNTED_KEY) === "1") return true;
+  } catch {
+    /* storage blocked */
+  }
+  return document.cookie.split(";").some((part) => part.trim() === `${COUNTED_KEY}=1`);
+}
+
+function rememberVisit() {
+  try {
+    localStorage.setItem(COUNTED_KEY, "1");
+  } catch {
+    /* private mode can block storage */
+  }
+  document.cookie = `${COUNTED_KEY}=1; max-age=31536000; path=/; samesite=lax`;
+}
+
 export function VisitCounter() {
   const [value, setValue] = useState<string | null>(null);
 
@@ -25,28 +43,16 @@ export function VisitCounter() {
           if (!cancelled) setValue((current) => current ?? "—");
         });
 
-    let alreadyCounted = false;
-    try {
-      alreadyCounted = localStorage.getItem(COUNTED_KEY) === "1";
-    } catch {
-      alreadyCounted = false;
+    if (alreadyCounted()) {
+      void read();
+    } else {
+      rememberVisit();
+      void fetch(HIT_URL)
+        .then((response) => response.json())
+        .then((data) => show(data.value))
+        .catch(() => read());
     }
 
-    const start = alreadyCounted
-      ? read()
-      : fetch(HIT_URL)
-          .then((response) => response.json())
-          .then((data) => {
-            try {
-              localStorage.setItem(COUNTED_KEY, "1");
-            } catch {
-              /* private mode can block storage */
-            }
-            show(data.value);
-          })
-          .catch(() => read());
-
-    void start;
     const timer = window.setInterval(() => void read(), 5000);
     return () => {
       cancelled = true;
