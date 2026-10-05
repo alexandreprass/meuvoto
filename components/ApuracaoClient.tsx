@@ -268,14 +268,7 @@ export function ApuracaoClient() {
               </div>
             )}
           </div>
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-3 text-xs text-neutral-500">
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#DC2626" }} /> Lula +10</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#FCA5A5" }} /> Lula até 10</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black bg-white" /> Empate</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#86EFAC" }} /> Flávio até 10</span>
-            <span className="inline-flex items-center gap-1.5"><span className="h-3 w-3 rounded-sm border border-black" style={{ backgroundColor: "#15803D" }} /> Flávio +10</span>
-          </div>
-          <p className="mt-2 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para ver os votos</p>
+          <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">Toque em um estado para ver os votos</p>
         </section>
 
         <aside className="w-full shrink-0 lg:w-[520px]">
