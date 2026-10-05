@@ -1,0 +1,50 @@
+"use client";
+
+import { useEffect, useState } from "react";
+
+const KEY = "meuvoto.digital";
+
+export function VisitCounter() {
+  const [value, setValue] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const storageKey = "meuvoto-visitas";
+    const cached = sessionStorage.getItem(storageKey);
+
+    const show = (next: string) => {
+      if (!cancelled) setValue(next);
+    };
+
+    if (cached) {
+      show(cached);
+      return;
+    }
+
+    fetch(`/api/visitas?key=${encodeURIComponent(KEY)}`)
+      .then((response) => response.json())
+      .then((data) => {
+        const next = String(data.value ?? "");
+        if (!next) return;
+        sessionStorage.setItem(storageKey, next);
+        show(next);
+      })
+      .catch(() => show("—"));
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const label = value === null ? "..." : Number.isFinite(Number(value)) ? Number(value).toLocaleString("pt-BR") : value;
+
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full border border-neutral-200 bg-neutral-50 px-2.5 py-1 text-xs font-medium text-neutral-600" title="Visitas nesta página">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+        <path d="M2.5 12S6.5 5.5 12 5.5 21.5 12 21.5 12 17.5 18.5 12 18.5 2.5 12 2.5 12Z" stroke="currentColor" strokeWidth="1.8" />
+        <circle cx="12" cy="12" r="2.6" stroke="currentColor" strokeWidth="1.8" />
+      </svg>
+      <span>{label}</span>
+    </span>
+  );
+}

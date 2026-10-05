@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { ApuracaoButton } from "./ApuracaoButton";
+import { VisitCounter } from "./VisitCounter";
 
 const LABELS: Record<OfficeId, string> = {
   presidente: "Presidente",
@@ -36,6 +37,7 @@ export function Header({ office, onOffice, onBallot }: Props) {
           </nav>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <VisitCounter />
           <ApuracaoButton />
           <button type="button" onClick={onBallot} className="rounded-full bg-neutral-950 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800">MEUS CANDIDATOS</button>
         </div>
