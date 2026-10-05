@@ -30,6 +30,35 @@ export function resultUrl(office: OfficeId, uf: string) {
   return `${TSE_ORIGIN}/${spec.ele}/dados/${code}/${code}-c${cargo}-e${ele}-u.json`;
 }
 
+/** One municipality file. TSE code is 5 digits, prefixed by the UF. */
+export function municipalityResultUrl(office: OfficeId, uf: string, codigo: string) {
+  const spec = FILE_SPEC[office];
+  const cargo = office === "deputado_estadual" && uf.toUpperCase() === "DF" ? "0008" : spec.cargo;
+  const code = uf.toLowerCase();
+  const ele = spec.ele.padStart(6, "0");
+  const cd = codigo.padStart(5, "0");
+  return `${TSE_ORIGIN}/${spec.ele}/dados/${code}/${code}${cd}-c${cargo}-e${ele}-u.json`;
+}
+
+export const MUN_CONFIG_URL = `${TSE_ORIGIN}/6257/config/mun-e006257-cm.json`;
+
+/**
+ * Stop refreshing once the count is finished.
+ * Majoritarian races can stay andamento "p" after every ballot box is in.
+ * Deputies only receive Eleito and Suplente when the TSE sets andamento to "f".
+ */
+export function tallyComplete(tally: Pick<Tally, "andamento" | "sectionsPct">, office?: OfficeId) {
+  if (tally.andamento === "f") return true;
+  if (office && isProportional(office)) return false;
+  return tally.sectionsPct >= 99.99;
+}
+
+/** Red when Lula is ahead, green when Flávio is ahead. A tie stays white. */
+export function winnerFill(pt: number, pl: number) {
+  if ((pt <= 0 && pl <= 0) || pt === pl) return "#ffffff";
+  return pt > pl ? PT_STRONG : PL_STRONG;
+}
+
 export type PartyTally = {
   sigla: string;
   numero: string;
