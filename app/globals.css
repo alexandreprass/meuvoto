@@ -30,17 +30,41 @@ button {
   animation: rec-blink 1.1s step-end infinite;
 }
 
-@keyframes vote-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
+.vote-reel {
+  display: inline-block;
+  height: 1lh;
+  overflow: hidden;
+  vertical-align: bottom;
+  text-align: center;
 }
 
-.vote-spin {
-  animation: vote-spin 0.42s linear;
+.vote-reel[data-kind="digit"] { width: 1ch; }
+.vote-reel[data-kind="sep"],
+.vote-reel[data-kind="mark"],
+.vote-reel[data-kind="other"] { width: auto; }
+
+.vote-reel-cell {
+  display: block;
+  height: 1lh;
+}
+
+.vote-reel-strip {
+  display: block;
+  animation-name: vote-reel-up;
+  animation-timing-function: cubic-bezier(0.16, 0.72, 0.28, 1);
+  animation-fill-mode: forwards;
+}
+
+@keyframes vote-reel-up {
+  from { transform: translateY(0); }
+  to { transform: translateY(calc(var(--reel-steps) * -1lh)); }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .vote-spin { animation: none; }
+  .vote-reel-strip {
+    animation: none;
+    transform: translateY(calc(var(--reel-steps) * -1lh));
+  }
 }
 
 select {

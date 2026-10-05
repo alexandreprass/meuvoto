@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
 import { ApuracaoBadge } from "./ApuracaoButton";
 import { BrazilMap, type MapStamp } from "./BrazilMap";
 import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
@@ -41,6 +41,94 @@ function placeName(uf: string, office: OfficeId) {
 function officeHeading(office: OfficeId, uf: string) {
   if (office === "deputado_estadual" && uf === "DF") return "Deputado distrital";
   return OFFICES[office].label;
+}
+
+function reducedMotionSubscribe(onChange: () => void) {
+  const media = window.matchMedia("(prefers-reduced-motion: reduce)");
+  media.addEventListener("change", onChange);
+  return () => media.removeEventListener("change", onChange);
+}
+
+function reducedMotionSnapshot() {
+  return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
+function reducedMotionServer() {
+  return false;
+}
+
+type ReelFrame = { place: string; from: string; to: string; gen: number };
+
+/** Digits travel upward only, passing each number in between, like a meter wheel. */
+function upwardGlyphs(from: string, to: string) {
+  if (from === to) return [to];
+  if (from >= "0" && from <= "9" && to >= "0" && to <= "9") {
+    const start = Number(from);
+    const turns = (Number(to) - start + 10) % 10;
+    return Array.from({ length: turns + 1 }, (_, index) => String((start + index) % 10));
+  }
+  return [from, to];
+}
+
+function reelKind(chars: string[]) {
+  const visible = chars.filter((char) => char !== "\0");
+  if (visible.length === 0 || visible.every((char) => char >= "0" && char <= "9")) return "digit";
+  if (visible.every((char) => char === "." || char === ",")) return "sep";
+  if (visible.every((char) => char === "%")) return "mark";
+  return "other";
+}
+
+function RollingText({ value, place }: { value: string; place: string }) {
+  const reduce = useSyncExternalStore(reducedMotionSubscribe, reducedMotionSnapshot, reducedMotionServer);
+  const [frame, setFrame] = useState<ReelFrame>({ place, from: value, to: value, gen: 0 });
+  if (reduce) {
+    if (frame.place !== place || frame.from !== value || frame.to !== value) {
+      setFrame({ place, from: value, to: value, gen: frame.gen });
+    }
+  } else if (frame.place !== place) {
+    setFrame({ place, from: value, to: value, gen: frame.gen + 1 });
+  } else if (frame.to !== value) {
+    setFrame({ place, from: frame.to, to: value, gen: frame.gen + 1 });
+  }
+
+  const width = Math.max(frame.from.length, frame.to.length);
+  const fromChars = frame.from.padStart(width, "\0").split("");
+  const toChars = frame.to.padStart(width, "\0").split("");
+  const sequences = fromChars.map((char, index) => upwardGlyphs(char, toChars[index]));
+  const maxSteps = sequences.reduce((max, seq) => Math.max(max, seq.length - 1), 0);
+  const duration = Math.min(0.9, 0.42 + Math.max(0, maxSteps - 1) * 0.07);
+
+  return (
+    <span className="inline-flex items-end whitespace-nowrap align-bottom tabular-nums">
+      <span className="sr-only">{value}</span>
+      <span aria-hidden="true" className="inline-flex">
+        {sequences.map((seq, index) => {
+          const steps = seq.length - 1;
+          return (
+            <span key={width - index} className="vote-reel" data-kind={reelKind(seq)}>
+              {steps > 0 ? (
+                <span
+                  key={frame.gen}
+                  className="vote-reel-strip"
+                  style={{ animationDuration: `${duration}s`, ["--reel-steps" as string]: String(steps) }}
+                  onAnimationEnd={(event) => {
+                    if (event.target !== event.currentTarget || steps !== maxSteps) return;
+                    setFrame((current) => (current.gen !== frame.gen || current.from === current.to ? current : { ...current, from: current.to }));
+                  }}
+                >
+                  {seq.map((char, step) => (
+                    <span key={step} className="vote-reel-cell">{char === "\0" ? "" : char}</span>
+                  ))}
+                </span>
+              ) : (
+                <span className="vote-reel-cell">{seq[0] === "\0" ? "" : seq[0]}</span>
+              )}
+            </span>
+          );
+        })}
+      </span>
+    </span>
+  );
 }
 
 export function ApuracaoClient() {
@@ -133,13 +221,7 @@ export function ApuracaoClient() {
   const rows = shown && shown.candidates.length > 0 ? shown.candidates : shown?.parties ?? [];
   const ptPct = shown && shown.valid > 0 ? (shown.pt / shown.valid) * 100 : 0;
   const plPct = shown && shown.valid > 0 ? (shown.pl / shown.valid) * 100 : 0;
-  const [voteSpin, setVoteSpin] = useState({ key: "", n: 0, uf: "" });
-  if (office === "presidente" && shown) {
-    const key = `${shown.pt}|${shown.pl}|${shown.valid}|${shown.sectionsDone}|${shown.generated}`;
-    if (voteSpin.uf !== shown.uf) setVoteSpin({ key, n: 0, uf: shown.uf });
-    else if (voteSpin.key !== key) setVoteSpin({ key, n: voteSpin.n + 1, uf: shown.uf });
-  }
-  const spinTurn = office === "presidente" ? voteSpin.n : 0;
+  const votePlace = shown?.uf ?? "";
 
   return (
     <div className="flex min-h-full flex-col bg-white">
@@ -221,15 +303,15 @@ export function ApuracaoClient() {
 
             {office === "presidente" ? (
               <div className="mb-3 grid grid-cols-2 gap-2">
-                <div key={`lula-${spinTurn}`} className={`rounded-2xl bg-red-600 px-3 py-3 text-white ${spinTurn > 0 ? "vote-spin" : ""}`}>
+                <div className="rounded-2xl bg-red-600 px-3 py-3 text-white">
                   <p className="text-xs font-semibold">LULA</p>
-                  <p className="text-2xl font-semibold tracking-tight">{formatPercent(ptPct)}%</p>
-                  <p className="text-xs text-red-100">{formatVotes(shown?.pt ?? 0)} votos</p>
+                  <p className="text-2xl font-semibold tracking-tight"><RollingText value={`${formatPercent(ptPct)}%`} place={votePlace} /></p>
+                  <p className="text-xs text-red-100"><RollingText value={formatVotes(shown?.pt ?? 0)} place={votePlace} /> votos</p>
                 </div>
-                <div key={`flavio-${spinTurn}`} className={`rounded-2xl bg-green-700 px-3 py-3 text-white ${spinTurn > 0 ? "vote-spin" : ""}`}>
+                <div className="rounded-2xl bg-green-700 px-3 py-3 text-white">
                   <p className="text-xs font-semibold">FLAVIO BOLSONARO</p>
-                  <p className="text-2xl font-semibold tracking-tight">{formatPercent(plPct)}%</p>
-                  <p className="text-xs text-green-100">{formatVotes(shown?.pl ?? 0)} votos</p>
+                  <p className="text-2xl font-semibold tracking-tight"><RollingText value={`${formatPercent(plPct)}%`} place={votePlace} /></p>
+                  <p className="text-xs text-green-100"><RollingText value={formatVotes(shown?.pl ?? 0)} place={votePlace} /> votos</p>
                 </div>
               </div>
             ) : null}
