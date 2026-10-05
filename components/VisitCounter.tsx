@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-const KEY = "meuvoto.digital";
+const HIT_URL = "https://countapi.mileshilliard.com/api/v1/hit/meuvoto.digital";
 
 export function VisitCounter() {
   const [value, setValue] = useState<string | null>(null);
@@ -21,7 +21,7 @@ export function VisitCounter() {
       return;
     }
 
-    fetch(`/api/visitas?key=${encodeURIComponent(KEY)}`)
+    fetch(HIT_URL)
       .then((response) => response.json())
       .then((data) => {
         const next = String(data.value ?? "");
