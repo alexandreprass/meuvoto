@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { chooseCandidate, isStateOffice, OFFICE_SEATS, OFFICES, OFFICES_ORDER, removeChoice, type Candidate, type OfficeId } from "@/lib/offices";
+import { useBallotMemory } from "@/lib/ballot-memory";
 import { Header } from "./Header";
+import { ElectionMenu } from "./ElectionMenu";
 import { BrazilMap } from "./BrazilMap";
 import { StatePanel } from "./StatePanel";
 import { CandidateList } from "./CandidateList";
@@ -14,7 +16,7 @@ import { assetUrl } from "@/lib/asset-url";
 export function HomeClient() {
   const [office, setOffice] = useState<OfficeId>("presidente");
   const [selectedState, setSelectedState] = useState("SP");
-  const [choices, setChoices] = useState<Partial<Record<OfficeId, Candidate[]>>>({});
+  const [choices, setChoices] = useBallotMemory(1);
   const [hoverUf, setHoverUf] = useState<string | null>(null);
   const [pinnedUf, setPinnedUf] = useState<string | null>(null);
   const [choiceOpen, setChoiceOpen] = useState(false);
@@ -69,7 +71,8 @@ export function HomeClient() {
   const visibleCandidates = candidateCache[candidateKey] ?? [];
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
+    <div className="flex min-h-full flex-col">
+      <ElectionMenu round={1} />
       <Header
         office={office}
         onOffice={(id) => {

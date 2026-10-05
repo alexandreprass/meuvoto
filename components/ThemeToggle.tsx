@@ -19,12 +19,16 @@ function snapshot() {
   return document.documentElement.classList.contains("dark");
 }
 
+export function useNightMode() {
+  return useSyncExternalStore(subscribe, snapshot, () => true);
+}
+
 export function ThemeToggle() {
-  const dark = useSyncExternalStore(subscribe, snapshot, () => false);
+  const dark = useNightMode();
 
   useLayoutEffect(() => {
-    const saved = localStorage.getItem(KEY) === "dark";
-    if (saved !== snapshot()) applyTheme(saved);
+    const wantDark = localStorage.getItem(KEY) !== "light";
+    if (wantDark !== snapshot()) applyTheme(wantDark);
   }, []);
 
   function toggle() {

@@ -9,16 +9,19 @@ import { assetUrl } from "@/lib/asset-url";
 
 type Props = {
   choices: BallotChoices;
+  offices?: OfficeId[];
+  caption?: string;
+  downloadName?: string;
   onClose: () => void;
   onOffice: (office: OfficeId, index: number) => void;
   onClear: (office: OfficeId, index: number) => void;
 };
 
-export function ChoiceModal({ choices, onClose, onOffice, onClear }: Props) {
+export function ChoiceModal({ choices, offices = OFFICES_ORDER, caption, downloadName = "minhas-escolhas-meuvoto.png", onClose, onOffice, onClear }: Props) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const slots = OFFICES_ORDER.flatMap((office) => Array.from({ length: OFFICE_SEATS[office] }, (_, index) => ({ office, index })));
+  const slots = offices.flatMap((office) => Array.from({ length: OFFICE_SEATS[office] }, (_, index) => ({ office, index })));
   const chosen = slots.flatMap(({ office, index }) => {
     const candidate = choices[office]?.[index];
     return candidate ? [{ office, candidate }] : [];
@@ -35,7 +38,7 @@ export function ChoiceModal({ choices, onClose, onOffice, onClear }: Props) {
         office: OFFICES[office].label,
         photoUrl: candidate.photo.startsWith("/") ? new URL(assetUrl(candidate.photo), window.location.origin).toString() : candidate.photo,
         fallbackPhotoUrl: candidate.fallbackPhoto ? new URL(assetUrl(candidate.fallbackPhoto), window.location.origin).toString() : undefined,
-      })));
+      })), caption);
       setPreviewUrl((previous) => {
         if (previous) URL.revokeObjectURL(previous);
         return URL.createObjectURL(blob);
@@ -86,7 +89,7 @@ export function ChoiceModal({ choices, onClose, onOffice, onClear }: Props) {
         <div className="relative z-10 flex max-h-[82vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl bg-white p-4 shadow-2xl">
           <button type="button" onClick={() => setPreviewUrl(null)} aria-label="Fechar" className="absolute right-3 top-3 z-10 rounded-full bg-white/90 px-3 py-1 text-xl text-neutral-600 shadow">×</button>
           <img src={previewUrl} alt="Prévia das escolhas" className="min-h-0 w-full flex-1 rounded-xl object-contain" />
-          <a href={previewUrl} download="minhas-escolhas-meuvoto.png" className="mt-4 block shrink-0 rounded-full bg-neutral-950 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-800">Salvar no dispositivo</a>
+          <a href={previewUrl} download={downloadName} className="mt-4 block shrink-0 rounded-full bg-neutral-950 px-5 py-3 text-center text-sm font-semibold text-white hover:bg-neutral-800">Salvar no dispositivo</a>
         </div>
       </div> : null}
     </div>

@@ -87,18 +87,18 @@ select {
 
 html.dark {
   color-scheme: dark;
-  --background: #0a0a0a;
+  --background: #0F0E0D;
   --foreground: #f5f5f5;
 }
 
 html.dark,
 html.dark body {
-  background: #0a0a0a;
+  background: #0F0E0D;
   color: #f5f5f5;
 }
 
 html.dark .bg-white { background-color: #171717; }
-html.dark .bg-white\/90 { background-color: rgb(23 23 23 / 0.94); }
+html.dark .bg-white\/90 { background-color: rgb(15 14 13 / 0.94); }
 html.dark .bg-neutral-50 { background-color: #141414; }
 html.dark .bg-neutral-100 { background-color: #262626; }
 html.dark .bg-neutral-800 { background-color: #d4d4d4; }
@@ -192,3 +192,53 @@ html.dark .theme-toggle {
   color: #171717;
   border-color: #d4d4d4;
 }
+
+.map-spin {
+  border-color: #e5e5e5;
+  border-top-color: #171717;
+}
+
+html.dark .map-spin {
+  border-color: rgba(255, 255, 255, 0.15);
+  border-top-color: #fafaf9;
+}
+
+.muni-label {
+  fill: #171717;
+  stroke: #ffffff;
+}
+
+html.dark .muni-label {
+  fill: #fafaf9;
+  stroke: #0F0E0D;
+}
+
+.map-legend { color: #525252; }
+html.dark .map-legend { color: #a6a39c; }
+
+.map-zoom {
+  background: #ffffff;
+  color: #171717;
+  border: 1px solid #e5e5e5;
+}
+
+html.dark .map-zoom {
+  background: #1b1a17;
+  color: #fafaf9;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.map-tip {
+  background: #ffffff;
+  color: #171717;
+  border: 1px solid #e5e5e5;
+}
+
+html.dark .map-tip {
+  background: #1c1b18;
+  color: #fafaf9;
+  border-color: rgba(255, 255, 255, 0.1);
+}
+
+.map-tip .tip-muted { color: #737373; }
+html.dark .map-tip .tip-muted { color: #a6a39c; }

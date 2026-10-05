@@ -39,11 +39,11 @@ export default function RootLayout({
         />
         <script
           dangerouslySetInnerHTML={{
-            __html: `try{if(localStorage.getItem("meuvoto-theme")==="dark")document.documentElement.classList.add("dark")}catch(e){}`,
+            __html: `try{if(localStorage.getItem("meuvoto-theme")!=="light")document.documentElement.classList.add("dark")}catch(e){}`,
           }}
         />
       </head>
-      <body className="min-h-full bg-white font-sans text-neutral-950">
+      <body className="min-h-full font-sans text-neutral-950">
         {children}
         <VisitCounter />
         <ThemeToggle />

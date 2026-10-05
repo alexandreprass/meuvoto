@@ -3,6 +3,7 @@
 import { memo, useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent as ReactMouseEvent, type PointerEvent as ReactPointerEvent, type ReactNode } from "react";
 import { assetUrl } from "@/lib/asset-url";
 import { FLAVIO_RAMP, LULA_RAMP, MAP_EMPTY } from "@/lib/apuracao";
+import { useNightMode } from "./ThemeToggle";
 
 type Shape = { ibge: string; d: string };
 type UfShape = { uf: string; d: string; x: number; y: number };
@@ -21,6 +22,9 @@ const HEIGHT = 680;
 const MIN_VIEW = 70;
 const GROUND = "#0F0E0D";
 const MUNI_STROKE = "rgba(15,14,13,0.55)";
+const DAY_EMPTY = "#ffffff";
+const DAY_SEAM = "rgba(0,0,0,0.16)";
+const DAY_ACTIVE = "#171717";
 const BORDER = "0.4";
 const ACTIVE_STROKE = "#FAFAF9";
 const ACTIVE_WIDTH = "1.7";
@@ -49,6 +53,13 @@ function zoomAround(view: View, factor: number): View {
   return clampView({ x: cx - w / 2, y: cy - h / 2, w, h });
 }
 
+function zoomOut(view: View): View {
+  const w = view.w * 1.6;
+  const h = view.h * 1.6;
+  if (w >= WIDTH || h >= HEIGHT) return HOME;
+  return { x: (WIDTH - w) / 2, y: (HEIGHT - h) / 2, w, h };
+}
+
 function clampView(view: View): View {
   const w = Math.min(WIDTH, Math.max(MIN_VIEW, view.w));
   const h = Math.min(HEIGHT, Math.max(MIN_VIEW * (HEIGHT / WIDTH), view.h));
@@ -57,8 +68,13 @@ function clampView(view: View): View {
   return { x, y, w, h };
 }
 
+function nightOn() {
+  return document.documentElement.classList.contains("dark");
+}
+
 function paintStroke(path: SVGPathElement, active: boolean) {
-  path.setAttribute("stroke", active ? ACTIVE_STROKE : MUNI_STROKE);
+  const night = nightOn();
+  path.setAttribute("stroke", active ? (night ? ACTIVE_STROKE : DAY_ACTIVE) : (night ? MUNI_STROKE : DAY_SEAM));
   path.setAttribute("stroke-width", active ? ACTIVE_WIDTH : BORDER);
 }
 
@@ -68,13 +84,14 @@ const PathLayer = memo(function PathLayer({ shapes }: { shapes: Shape[] }) {
   useLayoutEffect(() => {
     const group = ref.current;
     if (!group) return;
+    const night = nightOn();
     const fragment = document.createDocumentFragment();
     for (const shape of shapes) {
       const path = document.createElementNS(SVG_NS, "path");
       path.setAttribute("d", shape.d);
       path.setAttribute("data-id", shape.ibge);
-      path.setAttribute("fill", MAP_EMPTY);
-      path.setAttribute("stroke", MUNI_STROKE);
+      path.setAttribute("fill", night ? MAP_EMPTY : DAY_EMPTY);
+      path.setAttribute("stroke", night ? MUNI_STROKE : DAY_SEAM);
       path.setAttribute("stroke-width", BORDER);
       path.setAttribute("stroke-linejoin", "round");
       path.setAttribute("vector-effect", "non-scaling-stroke");
@@ -98,7 +115,7 @@ const StateLayer = memo(function StateLayer({ states }: { states: UfShape[] }) {
       const path = document.createElementNS(SVG_NS, "path");
       path.setAttribute("d", shape.d);
       path.setAttribute("fill", "none");
-      path.setAttribute("stroke", GROUND);
+      path.setAttribute("stroke", nightOn() ? GROUND : "rgba(0,0,0,0.28)");
       path.setAttribute("stroke-width", "1.35");
       path.setAttribute("stroke-linejoin", "round");
       path.setAttribute("vector-effect", "non-scaling-stroke");
@@ -107,10 +124,11 @@ const StateLayer = memo(function StateLayer({ states }: { states: UfShape[] }) {
     group.replaceChildren(fragment);
   }, [states]);
 
-  return <g ref={ref} style={{ pointerEvents: "none" }} />;
+  return <g ref={ref} className="estados" style={{ pointerEvents: "none" }} />;
 });
 
 export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props) {
+  const night = useNightMode();
   const [shapes, setShapes] = useState<Shape[] | null>(null);
   const [states, setStates] = useState<UfShape[]>([]);
   const [view, setView] = useState<View>(HOME);
@@ -140,13 +158,24 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
   useEffect(() => {
     const svg = svgRef.current;
     if (!svg || !shapes) return;
+    const empty = night ? MAP_EMPTY : DAY_EMPTY;
+    const seam = night ? MUNI_STROKE : DAY_SEAM;
+    const hot = night ? "rgba(250,250,249,0.9)" : "rgba(23,23,23,0.8)";
+    const activeColor = night ? ACTIVE_STROKE : DAY_ACTIVE;
     const paths = svg.querySelectorAll("g.munis path");
     for (let index = 0; index < paths.length; index += 1) {
       const path = paths[index];
       const ibge = path.getAttribute("data-id") ?? "";
-      path.setAttribute("fill", fills[ibge] ?? MAP_EMPTY);
+      const raw = fills[ibge];
+      path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
+      const on = ibge === activeRef.current;
+      const over = hoverNode.current === path && !on;
+      path.setAttribute("stroke", on ? activeColor : over ? hot : seam);
+      path.setAttribute("stroke-width", on ? ACTIVE_WIDTH : over ? "1.15" : BORDER);
     }
-  }, [fills, shapes]);
+    const border = night ? GROUND : "rgba(0,0,0,0.28)";
+    svg.querySelectorAll("g.estados path").forEach((path) => path.setAttribute("stroke", border));
+  }, [fills, shapes, night]);
 
   useEffect(() => {
     const previous = activeNode.current;
@@ -178,7 +207,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
       if (previous) paintStroke(previous, previous.getAttribute("data-id") === activeRef.current);
       hoverNode.current = target;
       if (ibge !== activeRef.current) {
-        target.setAttribute("stroke", "rgba(250,250,249,0.9)");
+        target.setAttribute("stroke", nightOn() ? "rgba(250,250,249,0.9)" : "rgba(23,23,23,0.8)");
         target.setAttribute("stroke-width", "1.15");
       }
     }
@@ -232,8 +261,8 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
 
   if (!shapes) {
     return (
-      <div className="flex aspect-[640/680] w-full items-center justify-center rounded-3xl" style={{ background: GROUND }}>
-        <div className="h-10 w-10 animate-spin rounded-full border-2 border-white/15 border-t-[#FAFAF9]" />
+      <div className="flex aspect-[640/680] w-full items-center justify-center">
+        <div className="map-spin h-10 w-10 animate-spin rounded-full border-2" />
       </div>
     );
   }
@@ -241,13 +270,13 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
   const showMarks = view.w > 240;
 
   return (
-    <div ref={wrapRef} className="relative overflow-hidden rounded-3xl" style={{ background: GROUND }}>
+    <div ref={wrapRef} className="relative overflow-hidden">
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
         preserveAspectRatio="xMidYMid meet"
         className="h-auto w-full touch-none select-none"
-        style={{ background: GROUND }}
+        shapeRendering="optimizeSpeed"
         role="img"
         aria-label="Mapa do Brasil por município"
         onPointerDown={onPointerDown}
@@ -269,7 +298,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
               const x = pin.x + dx;
               const y = pin.y + dy;
               return (
-                <text key={pin.uf} x={x} y={y} textAnchor="middle" fill="#FAFAF9" stroke={GROUND} strokeWidth="2.4" paintOrder="stroke" strokeLinejoin="round" fontWeight={600}>
+                <text key={pin.uf} className="muni-label" x={x} y={y} textAnchor="middle" strokeWidth="2.4" paintOrder="stroke" strokeLinejoin="round" fontWeight={600}>
                   {small ? (
                     <tspan fontSize={10}>{pin.uf}{pct ? ` ${pct}%` : ""}</tspan>
                   ) : (
@@ -286,7 +315,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
       </svg>
       {cursor ? (
         <div
-          className="pointer-events-none absolute z-20 w-52 rounded-2xl border border-white/10 bg-[#151412] p-2.5 shadow-lg"
+          className="map-tip pointer-events-none absolute z-20 w-52 rounded-2xl border p-2.5 shadow-lg"
           style={{
             left: cursor.x,
             top: cursor.y,
@@ -296,17 +325,17 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
           {tip(cursor.ibge)}
         </div>
       ) : null}
-      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-t border-white/10 px-3 py-2">
+      <div className="map-legend flex flex-wrap items-center gap-x-3 gap-y-1 px-1 pt-2">
         <Ramp name="Lula" colors={LULA_RAMP} />
         <Ramp name="Flávio" colors={FLAVIO_RAMP} />
-        <span className="text-[10px] text-[#A6A39C]">até 10 · 25 · 45 · mais pontos</span>
+        <span className="text-[10px]">até 10 · 25 · 45 · mais pontos</span>
       </div>
       <div className="absolute top-2 right-2 z-10 flex flex-col gap-1">
         <button
           type="button"
           aria-label="Aproximar o mapa"
           onClick={() => setView((current) => zoomAround(current, 1 / 1.6))}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#1B1A17] text-[#FAFAF9]"
+          className="map-zoom flex h-9 w-9 items-center justify-center rounded-full border"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
             <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" strokeWidth="1.8" />
@@ -317,8 +346,8 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
         <button
           type="button"
           aria-label="Afastar o mapa"
-          onClick={() => setView((current) => zoomAround(current, 1.6))}
-          className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-[#1B1A17] text-[#FAFAF9]"
+          onClick={() => setView((current) => zoomOut(current))}
+          className="map-zoom flex h-9 w-9 items-center justify-center rounded-full border"
         >
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
             <circle cx="10.5" cy="10.5" r="6.25" stroke="currentColor" strokeWidth="1.8" />
@@ -334,7 +363,7 @@ export function MunicipalMap({ fills, marks, activeIbge, onSelect, tip }: Props)
 function Ramp({ name, colors }: { name: string; colors: readonly string[] }) {
   return (
     <span className="flex items-center gap-1.5">
-      <span className="text-[11px] text-[#D6D4CF]">{name}</span>
+      <span className="text-[11px]">{name}</span>
       <span className="flex">
         {colors.map((color, index) => (
           <i

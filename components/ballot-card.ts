@@ -58,7 +58,7 @@ function coverCircle(ctx: CanvasRenderingContext2D, image: HTMLImageElement, x: 
   ctx.restore();
 }
 
-export async function renderBallotCard(items: BallotCardItem[]) {
+export async function renderBallotCard(items: BallotCardItem[], caption = "Candidatos para as eleições de 2026") {
   const width = 1080;
   const rowHeight = 196;
   const top = 350;
@@ -95,7 +95,7 @@ export async function renderBallotCard(items: BallotCardItem[]) {
   ctx.fillText("Minhas escolhas", 72, 160);
   ctx.font = "400 28px Segoe UI, Arial, sans-serif";
   ctx.fillStyle = "#5d6d64";
-  ctx.fillText("Candidatos para as eleições de 2026", 72, 208);
+  ctx.fillText(caption, 72, 208);
   ctx.fillStyle = "#b5c9bd";
   roundedRect(ctx, 72, 246, 936, 2, 1);
   ctx.fill();

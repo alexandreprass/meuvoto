@@ -9,21 +9,11 @@ import { OFFICES, OFFICES_ORDER, type OfficeId } from "@/lib/offices";
 import { assetUrl } from "@/lib/asset-url";
 import { STATES, UF_MAP, formatPercent, formatVotes } from "@/lib/states";
 import { RUNOFF_UFS, SEGUNDO_TURNO } from "@/lib/segundo-turno";
-import {
-  briefComplete,
-  briefFromTally,
-  MISSING_BRIEF,
-  parseMunConfig,
-  type MunBrief,
-  type Municipio,
-} from "@/lib/municipios";
+import { briefFromTally, parseMunConfig, type MunBrief, type Municipio } from "@/lib/municipios";
+import { unpack, type Pack } from "@/lib/apuracao-pack";
 import {
   andamentoLabel,
   isProportional,
-  MUN_CONFIG_URL,
-  municipalityResultUrl,
-  parseResult,
-  resultUrl,
   tallyComplete,
   winnerFill,
   type CandidateTally,
@@ -172,10 +162,10 @@ function rowSituacao(row: ResultRow) {
   return "situacao" in row ? row.situacao : "";
 }
 
-/** TSE fills cand.st on state races. For a finished majoritarian count it can still be blank, as with presidente. */
-function displayedSituacao(row: ResultRow, rows: ResultRow[], sectionsPct: number, proportional: boolean) {
+/** TSE fills cand.st on state races. Presidente often stays blank, so the state total can show the runoff. A city total never invents Eleito. */
+function displayedSituacao(row: ResultRow, rows: ResultRow[], sectionsPct: number, proportional: boolean, infer: boolean) {
   const own = rowSituacao(row);
-  if (own || proportional || sectionsPct < 99.9) return own;
+  if (own || proportional || sectionsPct < 99.9 || !infer) return own;
   const people = rows.filter((item): item is CandidateTally => "sq" in item && item.sq !== "");
   if (people.length < 2 || people.some((item) => item.situacao)) return "";
   const [first, second] = people;
@@ -347,163 +337,42 @@ export function ApuracaoClient() {
   const [briefs, setBriefs] = useState<Record<string, MunBrief>>({});
   const [munProgress, setMunProgress] = useState({ done: 0, total: 0 });
   const [munTally, setMunTally] = useState<Tally | null>(null);
+  const [presidentPack, setPresidentPack] = useState<Pack | null>(null);
+  const [officePacks, setOfficePacks] = useState<Record<string, Pack>>({});
 
   useEffect(() => {
     let stopped = false;
-    let running = false;
-    let timer = 0;
-    const pollOffice = round === 2 ? "presidente" : office;
-    const proportional = isProportional(pollOffice);
-    const jobs = [
-      ...STATES.map((state) => ({ bucket: "president" as const, uf: state.uf, office: "presidente" as const })),
-      { bucket: "president" as const, uf: "BR", office: "presidente" as const },
-      ...(pollOffice === "presidente"
-        ? []
-        : STATES.map((state) => ({ bucket: "office" as const, uf: state.uf, office: pollOffice }))),
-    ];
-
-    async function tick() {
-      if (running) return;
-      running = true;
-      try {
-        const pairs = await Promise.all(
-          jobs.map(async (job) => {
-            try {
-              const response = await fetch(resultUrl(job.office, job.uf), { cache: "no-store" });
-              if (!response.ok) return null;
-              return [job, parseResult(await response.json(), job.uf, job.bucket === "president" ? false : proportional)] as const;
-            } catch {
-              return null;
-            }
-          }),
-        );
-        if (stopped) return;
-        const ready = pairs.filter((pair): pair is readonly [(typeof jobs)[number], Tally] => pair !== null);
-        if (ready.length === 0) throw new Error("empty");
-        setPresidentByUf((current) => {
-          const next = { ...current };
-          for (const [job, tally] of ready) if (job.bucket === "president") next[job.uf] = tally;
-          return next;
-        });
-        if (pollOffice !== "presidente") {
-          setByUf((current) => {
-            const next = { ...current };
-            for (const [job, tally] of ready) if (job.bucket === "office") next[job.uf] = tally;
-            return next;
-          });
-        }
-        setError(ready.length === jobs.length ? "" : "Parte dos estados não atualizou nesta leitura.");
-        setClock(new Date().toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }));
-        if (ready.length === jobs.length && ready.every(([job, tally]) => tallyComplete(tally, job.office))) {
-          stopped = true;
-          window.clearInterval(timer);
-        }
-      } catch {
-        if (!stopped) setError("Não foi possível atualizar os dados do TSE agora.");
-      } finally {
-        running = false;
-      }
-    }
-
-    timer = window.setInterval(() => void tick(), 5000);
-    void tick();
-    return () => {
-      stopped = true;
-      clearInterval(timer);
-    };
-  }, [office, round]);
-
-  useEffect(() => {
-    let stopped = false;
-
-    async function pool(items: Municipio[], worker: (mun: Municipio) => Promise<void>) {
-      let index = 0;
-      async function run() {
-        while (index < items.length && !stopped) {
-          const current = items[index];
-          index += 1;
-          await worker(current);
-        }
-      }
-      await Promise.all(Array.from({ length: Math.min(6, items.length) }, () => run()));
-    }
-
     async function load() {
-      let response = await fetch(assetUrl("/mun-config.json"));
-      if (!response.ok) response = await fetch(MUN_CONFIG_URL);
-      if (!response.ok) throw new Error("config");
-      const list = parseMunConfig(await response.json());
+      const [configResponse, presidentResponse] = await Promise.all([
+        fetch(assetUrl("/mun-config.json")),
+        fetch(assetUrl("/apuracao/presidente.json")),
+      ]);
+      if (!configResponse.ok || !presidentResponse.ok) throw new Error("local");
+      const list = parseMunConfig(await configResponse.json());
+      const pack = (await presidentResponse.json()) as Pack;
       if (stopped) return;
+      const next: Record<string, Tally> = {};
+      const brazil = unpack(pack.br, pack, "BR");
+      if (brazil) next.BR = brazil;
+      for (const [uf, row] of Object.entries(pack.uf ?? {})) {
+        const tally = unpack(row, pack, uf);
+        if (tally) next[uf] = tally;
+      }
+      const briefsNext: Record<string, MunBrief> = {};
+      for (const mun of list) {
+        const tally = unpack(pack.m?.[mun.ibge], pack, mun.uf);
+        if (tally) briefsNext[mun.ibge] = briefFromTally(tally);
+      }
       setCatalog(list);
-      let stored: Record<string, MunBrief> = {};
-      try {
-        const raw = sessionStorage.getItem("meuvoto-mun-presidente-v2");
-        if (raw) stored = JSON.parse(raw) as Record<string, MunBrief>;
-      } catch {
-        stored = {};
-      }
-      const briefsNext = { ...stored };
-      let pauseUntil = 0;
+      setPresidentPack(pack);
+      setPresidentByUf(next);
       setBriefs(briefsNext);
-      const counted = () => list.filter((mun) => briefsNext[mun.ibge] && briefComplete(briefsNext[mun.ibge])).length;
-      setMunProgress({ done: counted(), total: list.length });
-
-      while (!stopped) {
-        const pending = list.filter((mun) => !briefsNext[mun.ibge] || !briefComplete(briefsNext[mun.ibge]));
-        if (pending.length === 0) {
-          try {
-            sessionStorage.setItem("meuvoto-mun-presidente-v2", JSON.stringify(briefsNext));
-          } catch {
-            // A full country cache can exceed the browser limit. The map still uses memory.
-          }
-          setMunProgress({ done: list.length, total: list.length });
-          return;
-        }
-        let batch = 0;
-        let got = 0;
-        await pool(pending, async (mun) => {
-          if (stopped) return;
-          if (Date.now() < pauseUntil) {
-            await new Promise((resolve) => window.setTimeout(resolve, pauseUntil - Date.now()));
-          }
-          if (stopped) return;
-          try {
-            const file = await fetch(municipalityResultUrl("presidente", mun.uf, mun.cd), { cache: "no-store" });
-            if (file.status === 404) briefsNext[mun.ibge] = MISSING_BRIEF;
-            else if (file.status === 429 || file.status === 503) {
-              pauseUntil = Date.now() + 20000;
-              return;
-            } else if (file.ok) {
-              briefsNext[mun.ibge] = briefFromTally(parseResult(await file.json(), mun.uf, false));
-              got += 1;
-            }
-          } catch {
-            return;
-          }
-          batch += 1;
-          if (batch >= 60) {
-            batch = 0;
-            setBriefs({ ...briefsNext });
-            setMunProgress({ done: counted(), total: list.length });
-          }
-        });
-        if (stopped) return;
-        setBriefs({ ...briefsNext });
-        setMunProgress({ done: counted(), total: list.length });
-        if (list.every((mun) => briefsNext[mun.ibge] && briefComplete(briefsNext[mun.ibge]))) {
-          try {
-            sessionStorage.setItem("meuvoto-mun-presidente-v2", JSON.stringify(briefsNext));
-          } catch {
-            // Ignore a full cache.
-          }
-          return;
-        }
-        await new Promise((resolve) => window.setTimeout(resolve, got === 0 ? 60000 : 15000));
-      }
+      setMunProgress({ done: Object.keys(briefsNext).length, total: list.length });
+      setClock(pack.g || "");
+      setError("");
     }
-
     void load().catch(() => {
-      if (!stopped) setError("Não foi possível carregar os municípios agora.");
+      if (!stopped) setError("Não foi possível abrir os resultados salvos.");
     });
     return () => {
       stopped = true;
@@ -511,34 +380,47 @@ export function ApuracaoClient() {
   }, []);
 
   useEffect(() => {
-    if (round === 2 || !municipio || selected === "BR") return;
-    const mun = catalog.find((item) => item.uf === selected && item.cd === municipio);
-    if (!mun) return;
-    const current = mun;
+    if (round === 2 || office === "presidente") return;
     let stopped = false;
-    let timer = 0;
-    async function tick() {
-      try {
-        const response = await fetch(municipalityResultUrl(office, current.uf, current.cd), { cache: "no-store" });
-        if (!response.ok) throw new Error("mun");
-        const tally = parseResult(await response.json(), current.uf, isProportional(office));
-        if (stopped) return;
-        setMunTally(tally);
-        if (tallyComplete(tally, office)) {
-          stopped = true;
-          window.clearInterval(timer);
+    async function load() {
+      const entries = await Promise.all(STATES.map(async (state) => {
+        const response = await fetch(assetUrl(`/apuracao/${office}/${state.uf}.json`));
+        if (!response.ok) return null;
+        return [state.uf, (await response.json()) as Pack] as const;
+      }));
+      if (stopped) return;
+      const tallies: Record<string, Tally> = {};
+      const packs: Record<string, Pack> = {};
+      let missing = false;
+      for (const entry of entries) {
+        if (!entry) {
+          missing = true;
+          continue;
         }
-      } catch {
-        if (!stopped) setError("Não foi possível ler este município agora.");
+        const [uf, pack] = entry;
+        const tally = unpack(pack.u, pack, uf);
+        if (tally) tallies[uf] = tally;
+        packs[uf] = pack;
       }
+      setByUf(tallies);
+      setOfficePacks(packs);
+      if (missing) setError("Parte dos estados não está no arquivo salvo.");
     }
-    timer = window.setInterval(() => void tick(), 5000);
-    void tick();
+    void load().catch(() => {
+      if (!stopped) setError("Não foi possível abrir os resultados salvos.");
+    });
     return () => {
       stopped = true;
-      window.clearInterval(timer);
     };
-  }, [catalog, municipio, office, round, selected]);
+  }, [office, round]);
+
+  useEffect(() => {
+    if (round === 2 || !municipio || selected === "BR") return;
+    const mun = catalog.find((item) => item.uf === selected && item.cd === municipio);
+    const pack = office === "presidente" ? presidentPack : officePacks[selected];
+    if (!mun || !pack) return;
+    setMunTally(unpack(pack.m?.[mun.ibge], pack, mun.uf));
+  }, [catalog, municipio, office, officePacks, presidentPack, round, selected]);
 
   const panelByUf = office === "presidente" ? presidentByUf : byUf;
 
@@ -610,16 +492,16 @@ export function ApuracaoClient() {
     const brief = briefs[ibge];
     return (
       <>
-        <p className="mb-1.5 truncate text-xs font-semibold text-[#FAFAF9]">{mun.nome}</p>
-        {!brief ? <p className="text-[11px] text-[#A6A39C]">Carregando votos</p> : null}
-        {brief && brief.top.length === 0 ? <p className="text-[11px] text-[#A6A39C]">Sem votos publicados</p> : null}
+        <p className="mb-1.5 truncate text-xs font-semibold">{mun.nome}</p>
+        {!brief ? <p className="tip-muted text-[11px]">Carregando votos</p> : null}
+        {brief && brief.top.length === 0 ? <p className="tip-muted text-[11px]">Sem votos publicados</p> : null}
         {brief && brief.top.length > 0 ? (
           <ul className="space-y-1">
             {brief.top.map((candidate) => (
               <li key={`${candidate.sq}-${candidate.numero}`} className="flex items-center gap-2">
                 <Portrait className="h-8 w-8 shrink-0 rounded-full object-cover object-top" sources={photoSources(candidate.sq, "presidente", mun.uf)} />
-                <span className="min-w-0 flex-1 truncate text-[11px] text-[#D6D4CF]">{candidate.nome}</span>
-                <span className="shrink-0 text-xs font-semibold text-[#FAFAF9]">{formatPercent(candidate.pct)}%</span>
+                <span className="tip-muted min-w-0 flex-1 truncate text-[11px]">{candidate.nome}</span>
+                <span className="shrink-0 text-xs font-semibold">{formatPercent(candidate.pct)}%</span>
               </li>
             ))}
           </ul>
@@ -642,10 +524,10 @@ export function ApuracaoClient() {
   const votePlace = shown?.uf ?? "";
 
   return (
-    <div className="flex min-h-full flex-col bg-white">
+    <div className="flex min-h-full flex-col">
       <TurnoDrawer round={round} onChange={(next) => { setRound(next); setMunTally(null); }} />
       <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-3 sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-2 sm:px-6">
           <Link href="/" className="flex shrink-0 items-center gap-2">
             <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-neutral-950 text-white">
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden>
@@ -661,17 +543,16 @@ export function ApuracaoClient() {
         </div>
       </header>
 
-      <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-8 px-4 py-6 sm:px-6 lg:flex-row lg:items-start lg:gap-10 lg:py-8">
+      <main className="mx-auto flex w-full max-w-screen-2xl flex-1 flex-col gap-6 px-4 pt-2 pb-4 sm:px-6 lg:flex-row lg:items-start lg:gap-8 lg:pt-3">
         <section className="relative min-w-0 flex-1">
-          <div className="mb-3">
-            <h1 className="text-2xl font-semibold tracking-tight text-neutral-950 sm:text-3xl">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
-            <p className="mt-1 text-sm text-neutral-500">{round === 2 ? "O mapa mantém o 1º turno. Vermelho é Lula, verde é Flávio, e o tom mostra a vantagem: até 10, 25, 45 ou mais pontos." : "Vermelho onde Lula teve mais votos que Flávio, verde no sentido contrário. O tom mostra a vantagem: até 10, 25, 45 ou mais pontos. O mapa é sempre da eleição para presidente."}</p>
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <h1 className="text-lg font-semibold tracking-tight text-neutral-950">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
+            {round === 1 ? <div className="flex gap-1 overflow-x-auto">
+              {OFFICES_ORDER.map((id) => (
+                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+              ))}
+            </div> : null}
           </div>
-          {round === 1 ? <div className="mb-3 flex gap-1 overflow-x-auto">
-            {OFFICES_ORDER.map((id) => (
-              <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
-            ))}
-          </div> : null}
           <div className="relative mx-auto w-full max-w-3xl">
             <MunicipalMap fills={fills} marks={stateMarks} activeIbge={round === 1 ? activeIbge : null} onSelect={onMapSelect} tip={mapTip} />
             {munProgress.total > 0 && munProgress.done < munProgress.total ? (
@@ -688,7 +569,7 @@ export function ApuracaoClient() {
               <div>
                 <p className="text-[10px] font-semibold uppercase tracking-wider text-neutral-400">{selectedMun ? `${selectedMun.nome} (${selectedMun.uf})` : placeName(selected, office)}</p>
                 <h2 className="text-base font-semibold text-neutral-950">{officeHeading(office, selected)}</h2>
-                <p className="text-xs text-neutral-500">{shown ? (tallyComplete(shown, office) ? "Apuração encerrada" : andamentoLabel(shown.andamento)) : municipio ? "Carregando município" : "Carregando dados do TSE"}</p>
+                <p className="text-xs text-neutral-500">{shown ? (tallyComplete(shown, office) ? "Apuração encerrada" : andamentoLabel(shown.andamento)) : municipio ? "Carregando município" : "Carregando resultados"}</p>
               </div>
               <div className="shrink-0 text-right">
                 <p className="text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
@@ -748,7 +629,7 @@ export function ApuracaoClient() {
               {filteredRows.map((row) => {
                 const tone = row.sigla === "PT" ? "bg-red-600" : row.sigla === "PL" ? "bg-green-700" : "bg-neutral-800";
                 const sq = rowSq(row);
-                const situacao = displayedSituacao(row, rows, shown?.sectionsPct ?? 0, isProportional(office));
+                const situacao = displayedSituacao(row, rows, shown?.sectionsPct ?? 0, isProportional(office), !municipio);
                 return (
                   <div key={`${row.sigla}-${row.numero}-${row.nome}`} className="rounded-2xl border border-neutral-200 px-3 py-2">
                     <div className="flex items-center gap-2.5">
@@ -782,9 +663,9 @@ export function ApuracaoClient() {
             <p className="mt-2 text-xs text-neutral-400">
               {panelSettled
                 ? munProgress.total > 0 && munProgress.done < munProgress.total
-                  ? "Apuração encerrada no TSE. O mapa ainda está carregando os municípios."
-                  : "Apuração encerrada no TSE. A página parou de atualizar."
-                : "Dados oficiais parciais do TSE, atualizados a cada 5 segundos."}{" "}
+                  ? "Resultado oficial do TSE salvo no site. O mapa ainda está abrindo as cidades."
+                  : "Resultado oficial do TSE salvo no site."
+                : "Resultado oficial do TSE salvo no site."}{" "}
               <a href={TSE_PAGE[office]} target="_blank" rel="noopener noreferrer" className="underline">Fonte</a>
             </p>
           </div>

@@ -14,11 +14,12 @@ const LABELS: Record<OfficeId, string> = {
 
 type Props = {
   office: string;
+  offices?: OfficeId[];
   onOffice: (id: string) => void;
   onBallot: () => void;
 };
 
-export function Header({ office, onOffice, onBallot }: Props) {
+export function Header({ office, offices = OFFICES_ORDER, onOffice, onBallot }: Props) {
   return (
     <header className="sticky top-0 z-30 border-b border-neutral-200 bg-white/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-3 pr-16 sm:flex-row sm:items-center sm:justify-between sm:px-6">
@@ -32,7 +33,7 @@ export function Header({ office, onOffice, onBallot }: Props) {
             <span className="text-lg font-semibold tracking-tight text-neutral-950">meu<span className="text-emerald-600">voto</span><span className="text-neutral-400">.digital</span></span>
           </Link>
           <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto rounded-full bg-neutral-100 p-1 md:flex">
-            {OFFICES_ORDER.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition ${office === id ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>{LABELS[id]}</button>)}
+            {offices.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium transition ${office === id ? "bg-white text-neutral-950 shadow-sm" : "text-neutral-500 hover:text-neutral-800"}`}>{LABELS[id]}</button>)}
           </nav>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -41,7 +42,7 @@ export function Header({ office, onOffice, onBallot }: Props) {
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto px-4 pb-3 md:hidden">
-        {OFFICES_ORDER.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{LABELS[id]}</button>)}
+        {offices.map((id) => <button key={id} type="button" onClick={() => onOffice(id)} className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{LABELS[id]}</button>)}
       </nav>
     </header>
   );
