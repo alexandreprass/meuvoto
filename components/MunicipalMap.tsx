@@ -547,6 +547,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
             transform: `translate(${cursor.flipX ? "calc(-100% - 14px)" : "14px"}, ${cursor.flipY ? "calc(-100% - 8px)" : "14px"})`,
           }}
         >
+          <button type="button" aria-label="Fechar" onClick={() => setCursor(null)} className="pointer-events-auto absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-sm leading-none text-neutral-400">×</button>
           {cursor.kind === "city" ? tip(cursor.id) : stateTip(cursor.id)}
         </div>
       ) : null}
