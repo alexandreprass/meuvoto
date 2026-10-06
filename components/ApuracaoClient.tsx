@@ -34,8 +34,8 @@ const OFFICE_SHORT: Record<OfficeId, string> = {
   presidente: "Presidente",
   governador: "Governador",
   senador: "Senadores",
-  deputado_federal: "Dep. Federal",
-  deputado_estadual: "Dep. Estadual",
+  deputado_federal: "Dep. Fed.",
+  deputado_estadual: "Dep. Est.",
 };
 
 function placeName(uf: string, office: OfficeId) {
@@ -592,9 +592,9 @@ export function ApuracaoClient() {
         <section className="relative min-w-0 flex-1">
           <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
             <h1 className="text-lg font-semibold tracking-tight text-neutral-950">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
-            {round === 1 ? <div className="flex flex-wrap gap-1 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:justify-end sm:overflow-x-auto">
+            {round === 1 ? <div className="flex w-full flex-nowrap items-center gap-1 sm:min-w-0 sm:w-auto sm:flex-1 sm:justify-end">
               {OFFICES_ORDER.map((id) => (
-                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`min-w-0 flex-1 whitespace-nowrap rounded-full px-1 py-0.5 text-center text-[10px] font-semibold sm:flex-none sm:px-2 sm:text-[11px] ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
               ))}
             </div> : null}
           </div>
