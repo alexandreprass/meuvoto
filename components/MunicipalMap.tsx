@@ -55,6 +55,14 @@ type View = { x: number; y: number; w: number; h: number };
 
 const HOME: View = { x: 0, y: 0, w: WIDTH, h: HEIGHT };
 
+function zoomAt(view: View, factor: number, fx: number, fy: number): View {
+  const w = Math.min(WIDTH, Math.max(MIN_VIEW, view.w * factor));
+  const h = Math.min(HEIGHT, Math.max(MIN_VIEW * (HEIGHT / WIDTH), view.h * factor));
+  const ax = view.x + view.w * fx;
+  const ay = view.y + view.h * fy;
+  return clampView({ x: ax - w * fx, y: ay - h * fy, w, h });
+}
+
 function zoomAround(view: View, factor: number): View {
   const w = Math.min(WIDTH, Math.max(MIN_VIEW, view.w * factor));
   const h = Math.min(HEIGHT, Math.max(MIN_VIEW * (HEIGHT / WIDTH), view.h * factor));
@@ -109,7 +117,7 @@ function paintStroke(path: SVGPathElement, active: boolean) {
   path.setAttribute("stroke-width", active ? ACTIVE_WIDTH : BORDER);
 }
 
-const CITY_SCALE = 2;
+const CITY_SCALE = 3;
 
 const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night, activeIbge, view, blitRef, hitRef }: { shapes: Shape[]; fills: Record<string, string>; focusPrefix: string | null; night: boolean; activeIbge: string | null; view: View; blitRef:  { current: ((next: View) => void) | null }; hitRef:  { current: HTMLCanvasElement | null } }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -119,7 +127,7 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
   const viewRef = useRef(view);
   viewRef.current = view;
 
-  const paint = useCallback((next: View) => {
+  const paint = useCallback((next: View, sharp = true) => {
     const canvas = ref.current;
     const cache = cacheRef.current;
     if (!canvas || !cache) return;
@@ -133,7 +141,28 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
     }
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
-    ctx.drawImage(cache, next.x * CITY_SCALE, next.y * CITY_SCALE, next.w * CITY_SCALE, next.h * CITY_SCALE, 0, 0, width, height);
+    const zoomed = next.w < WIDTH * 0.92;
+    if (!sharp || !zoomed) {
+      ctx.setTransform(1, 0, 0, 1, 0, 0);
+      ctx.drawImage(cache, next.x * CITY_SCALE, next.y * CITY_SCALE, next.w * CITY_SCALE, next.h * CITY_SCALE, 0, 0, width, height);
+    } else {
+      const empty = night ? MAP_EMPTY : DAY_EMPTY;
+      ctx.setTransform(width / next.w, 0, 0, height / next.h, -next.x * width / next.w, -next.y * height / next.h);
+      ctx.fillStyle = empty;
+      ctx.fillRect(next.x - 2, next.y - 2, next.w + 4, next.h + 4);
+      ctx.lineWidth = Math.max(0.15, next.w / width);
+      ctx.strokeStyle = "#000000";
+      const paths = pathsRef.current;
+      const ids = idsRef.current;
+      for (let index = 0; index < paths.length; index += 1) {
+        const ibge = ids[index];
+        if (focusPrefix && !ibge.startsWith(focusPrefix)) continue;
+        const raw = fills[ibge];
+        ctx.fillStyle = !raw || (!night && raw === MAP_EMPTY) ? empty : raw;
+        ctx.fill(paths[index]);
+        ctx.stroke(paths[index]);
+      }
+    }
     if (!activeIbge) return;
     const index = idsRef.current.indexOf(activeIbge);
     const path = pathsRef.current[index];
@@ -144,7 +173,7 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
     ctx.lineWidth = 1.6 * next.w / width;
     ctx.stroke(path);
     ctx.restore();
-  }, [activeIbge, night]);
+  }, [activeIbge, fills, focusPrefix, night]);
 
   useLayoutEffect(() => {
     pathsRef.current = shapes.map((shape) => new Path2D(shape.d));
@@ -193,8 +222,8 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
   }, [fills, focusPrefix, night, paint, shapes]);
 
   useLayoutEffect(() => {
-    blitRef.current = paint;
-    paint(view);
+    blitRef.current = (next) => paint(next, false);
+    paint(view, true);
     return () => {
       blitRef.current = null;
     };
@@ -243,6 +272,8 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   const tipRef = useRef<HTMLDivElement>(null);
   const cityBlitRef = useRef<((next: View) => void) | null>(null);
   const cityHitRef = useRef<HTMLCanvasElement | null>(null);
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ dist: number; view: View; cx: number; cy: number; pending: View | null } | null>(null);
   const shapesRef = useRef<Shape[] | null>(null);
   const viewRef = useRef(view);
   const skipClick = useRef(false);
@@ -401,15 +432,36 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
 
   function onPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
     if (event.button !== 0) return;
-    skipClick.current = false;
-    dragRef.current = { x: event.clientX, y: event.clientY, view, pending: null, moved: false };
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
     event.currentTarget.setPointerCapture(event.pointerId);
+    if (pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      pinchRef.current = { dist: Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y), view: dragRef.current?.pending ?? viewRef.current, cx: (pts[0].x + pts[1].x) / 2, cy: (pts[0].y + pts[1].y) / 2, pending: null };
+      dragRef.current = null;
+      skipClick.current = true;
+      return;
+    }
+    skipClick.current = false;
+    dragRef.current = { x: event.clientX, y: event.clientY, view: viewRef.current, pending: null, moved: false };
   }
 
   function onPointerMove(event: ReactPointerEvent<SVGSVGElement>) {
+    if (!pointersRef.current.has(event.pointerId)) return;
+    pointersRef.current.set(event.pointerId, { x: event.clientX, y: event.clientY });
+    const rect = event.currentTarget.getBoundingClientRect();
+    const pinch = pinchRef.current;
+    if (pinch && pointersRef.current.size >= 2) {
+      const pts = [...pointersRef.current.values()];
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      if (pinch.dist < 1 || dist < 1) return;
+      const next = zoomAt(pinch.view, pinch.dist / dist, (pinch.cx - rect.left) / rect.width, (pinch.cy - rect.top) / rect.height);
+      pinch.pending = next;
+      if (svgRef.current) applyViewBox(svgRef.current, next);
+      cityBlitRef.current?.(next);
+      return;
+    }
     const drag = dragRef.current;
     if (!drag) return;
-    const rect = event.currentTarget.getBoundingClientRect();
     const dx = event.clientX - drag.x;
     const dy = event.clientY - drag.y;
     if (!drag.moved && Math.hypot(dx, dy) < 5) return;
@@ -423,10 +475,13 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     cityBlitRef.current?.(next);
   }
 
-  function onPointerUp() {
-    const drag = dragRef.current;
-    dragRef.current = null;
-    if (drag?.pending) setView(drag.pending);
+  function onPointerUp(event: ReactPointerEvent<SVGSVGElement>) {
+    pointersRef.current.delete(event.pointerId);
+    const pinch = pinchRef.current;
+    if (pointersRef.current.size < 2) pinchRef.current = null;
+    const pending = pinch?.pending ?? dragRef.current?.pending ?? null;
+    if (pointersRef.current.size === 0) dragRef.current = null;
+    if (pending && pointersRef.current.size < 2) setView(pending);
   }
 
   if (!shapes) {
