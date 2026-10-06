@@ -629,7 +629,7 @@ export function ApuracaoClient() {
           <p className="mt-3 text-center text-sm text-neutral-400 lg:hidden">{round === 2 ? "Toque em um estado com segundo turno" : mapMode === "estadual" ? "Toque em um estado para ver os votos" : "Toque em um município para ver os votos"}</p>
         </section>
 
-        <aside className="w-full shrink-0 lg:w-[520px]">
+        <aside className={`w-full shrink-0 lg:w-[520px] ${municipio ? "fixed inset-x-0 bottom-0 z-40 max-h-[78vh] overflow-y-auto px-3 pb-3 lg:static lg:max-h-none lg:overflow-visible lg:px-0 lg:pb-0" : ""}`}>
           {round === 2 ? <SecondRoundPanel focus={roundFocus} onFocus={setRoundFocus} /> : (
           <div className="rounded-3xl border border-neutral-200 bg-white p-3 sm:p-4 lg:sticky lg:top-24">
             <div className="mb-3 flex items-start justify-between gap-3">
@@ -643,7 +643,7 @@ export function ApuracaoClient() {
                   <p className="text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
                   {shown ? <p className="mt-1 text-xs font-medium text-neutral-500">{formatPercent(shown.sectionsPct)}% das urnas apuradas</p> : null}
                 </div>
-                {municipio ? <button type="button" aria-label="Fechar resultado do município" onClick={() => { setMunicipio(""); setMunTally(null); setQuery(""); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-lg leading-none text-neutral-700">×</button> : null}
+                {municipio ? <button type="button" aria-label="Fechar resultado do município" onClick={() => { setMunicipio(""); setMunTally(null); setQuery(""); }} className="flex h-10 w-10 items-center justify-center rounded-full border border-neutral-300 bg-white text-xl leading-none text-neutral-950">×</button> : null}
               </div>
             </div>
             <div className="mb-2 grid grid-cols-2 gap-2">
