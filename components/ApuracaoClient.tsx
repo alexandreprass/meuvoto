@@ -594,7 +594,7 @@ export function ApuracaoClient() {
             <h1 className="text-lg font-semibold tracking-tight text-neutral-950">{round === 2 ? "Apuração do 2º turno" : `Apuração para ${OFFICES[office].label.toLowerCase()}`}</h1>
             {round === 1 ? <div className="flex flex-wrap gap-1 sm:min-w-0 sm:flex-1 sm:flex-nowrap sm:justify-end sm:overflow-x-auto">
               {OFFICES_ORDER.map((id) => (
-                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`shrink-0 whitespace-nowrap rounded-full px-3 py-1.5 text-sm font-medium ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
+                <button key={id} type="button" onClick={() => { if (id === office) return; setOffice(id); setByUf({}); setError(""); setQuery(""); setMunicipio(""); setMunTally(null); if (id !== "presidente") setSelected((current) => (current === "BR" ? "SP" : current)); }} className={`shrink-0 whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-semibold ${office === id ? "bg-neutral-950 text-white" : "bg-neutral-100 text-neutral-500"}`}>{OFFICE_SHORT[id]}</button>
               ))}
             </div> : null}
           </div>
