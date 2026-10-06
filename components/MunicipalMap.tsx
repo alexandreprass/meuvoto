@@ -413,7 +413,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     if (!tip) return;
     tip.style.left = `${x}px`;
     tip.style.top = `${y}px`;
-    tip.style.transform = `translate(${flipX ? "calc(-100% - 14px)" : "14px"}, ${flipY ? "calc(-100% - 8px)" : "14px"})`;
+    tip.style.transform = "translate(calc(-100% - 8px), -50%)";
   }
 
   const onShapeClick = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
@@ -540,14 +540,14 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       {cursor ? (
         <div
           ref={tipRef}
-          className="map-tip pointer-events-none absolute z-20 w-52 rounded-2xl border p-2.5 shadow-lg"
+          className="map-tip pointer-events-none absolute z-20 w-[6.5rem] rounded-xl border p-1.5 pr-4 shadow-lg"
           style={{
             left: cursor.x,
             top: cursor.y,
-            transform: `translate(${cursor.flipX ? "calc(-100% - 14px)" : "14px"}, ${cursor.flipY ? "calc(-100% - 8px)" : "14px"})`,
+            transform: "translate(calc(-100% - 8px), -50%)",
           }}
         >
-          <button type="button" aria-label="Fechar" onClick={() => setCursor(null)} className="pointer-events-auto absolute top-1.5 right-1.5 flex h-5 w-5 items-center justify-center rounded-full text-sm leading-none text-neutral-400">×</button>
+          <button type="button" aria-label="Fechar" onClick={() => setCursor(null)} className="pointer-events-auto absolute top-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full text-xs leading-none text-neutral-400">×</button>
           {cursor.kind === "city" ? tip(cursor.id) : stateTip(cursor.id)}
         </div>
       ) : null}

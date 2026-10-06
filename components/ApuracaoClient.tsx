@@ -509,16 +509,16 @@ export function ApuracaoClient() {
     const brief = briefs[ibge];
     return (
       <>
-        <p className="mb-1.5 truncate text-xs font-semibold">{mun.nome}</p>
-        {!brief ? <p className="tip-muted text-[11px]">Carregando votos</p> : null}
-        {brief && brief.top.length === 0 ? <p className="tip-muted text-[11px]">Sem votos publicados</p> : null}
+        <p className="mb-1 truncate pr-2 text-[9px] font-semibold">{mun.nome}</p>
+        {!brief ? <p className="tip-muted text-[8px]">Carregando votos</p> : null}
+        {brief && brief.top.length === 0 ? <p className="tip-muted text-[8px]">Sem votos publicados</p> : null}
         {brief && brief.top.length > 0 ? (
-          <ul className="space-y-1">
+          <ul className="space-y-0.5">
             {brief.top.map((candidate) => (
-              <li key={`${candidate.sq}-${candidate.numero}`} className="flex items-center gap-2">
-                <Portrait className="h-8 w-8 shrink-0 rounded-full object-cover object-top" sources={photoSources(candidate.sq, "presidente", mun.uf)} />
-                <span className="tip-muted min-w-0 flex-1 truncate text-[11px]">{candidate.nome}</span>
-                <span className="shrink-0 text-xs font-semibold">{formatPercent(candidate.pct)}%</span>
+              <li key={`${candidate.sq}-${candidate.numero}`} className="flex items-center gap-1">
+                <Portrait className="h-4 w-4 shrink-0 rounded-full object-cover object-top" sources={photoSources(candidate.sq, "presidente", mun.uf)} />
+                <span className="tip-muted min-w-0 flex-1 truncate text-[8px]">{candidate.nome}</span>
+                <span className="shrink-0 text-[8px] font-semibold">{formatPercent(candidate.pct)}%</span>
               </li>
             ))}
           </ul>
