@@ -109,78 +109,98 @@ function paintStroke(path: SVGPathElement, active: boolean) {
   path.setAttribute("stroke-width", active ? ACTIVE_WIDTH : BORDER);
 }
 
-function paintCities(group: SVGGElement, fills: Record<string, string>, mode: MapMode, focusPrefix: string | null, night: boolean, activeIbge: string | null) {
-  const empty = night ? MAP_EMPTY : DAY_EMPTY;
-  const seam = night ? MUNI_STROKE : DAY_SEAM;
-  const activeColor = night ? ACTIVE_STROKE : DAY_ACTIVE;
-  const paths = group.querySelectorAll("path");
-  for (let index = 0; index < paths.length; index += 1) {
-    const path = paths[index];
-    if (!(path instanceof SVGPathElement)) continue;
-    const ibge = path.getAttribute("data-id") ?? "";
-    const raw = fills[ibge];
-    const shown = mode === "municipal" && (!focusPrefix || ibge.startsWith(focusPrefix));
-    if (shown) path.removeAttribute("display");
-    else path.setAttribute("display", "none");
-    path.setAttribute("fill", !raw || (!night && raw === MAP_EMPTY) ? empty : raw);
-    path.setAttribute("stroke", ibge === activeIbge ? activeColor : seam);
-    path.setAttribute("stroke-width", ibge === activeIbge ? ACTIVE_WIDTH : BORDER);
-  }
-}
+const CITY_SCALE = 2;
 
-const PathLayer = memo(function PathLayer({ shapes, fills, mode, focusPrefix, night, activeIbge }: { shapes: Shape[]; fills: Record<string, string>; mode: MapMode; focusPrefix: string | null; night: boolean; activeIbge: string | null }) {
-  const ref = useRef<SVGGElement>(null);
-  const paintArgs = useRef({ fills, mode, focusPrefix, night, activeIbge });
+const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night, activeIbge, view, blitRef, hitRef }: { shapes: Shape[]; fills: Record<string, string>; focusPrefix: string | null; night: boolean; activeIbge: string | null; view: View; blitRef:  { current: ((next: View) => void) | null }; hitRef:  { current: HTMLCanvasElement | null } }) {
+  const ref = useRef<HTMLCanvasElement>(null);
+  const cacheRef = useRef<HTMLCanvasElement | null>(null);
+  const pathsRef = useRef<Path2D[]>([]);
+  const idsRef = useRef<string[]>([]);
+  const viewRef = useRef(view);
+  viewRef.current = view;
+
+  const paint = useCallback((next: View) => {
+    const canvas = ref.current;
+    const cache = cacheRef.current;
+    if (!canvas || !cache) return;
+    const rect = canvas.getBoundingClientRect();
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const width = Math.max(1, Math.round(rect.width * dpr));
+    const height = Math.max(1, Math.round(rect.height * dpr));
+    if (canvas.width !== width || canvas.height !== height) {
+      canvas.width = width;
+      canvas.height = height;
+    }
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    ctx.drawImage(cache, next.x * CITY_SCALE, next.y * CITY_SCALE, next.w * CITY_SCALE, next.h * CITY_SCALE, 0, 0, width, height);
+    if (!activeIbge) return;
+    const index = idsRef.current.indexOf(activeIbge);
+    const path = pathsRef.current[index];
+    if (!path) return;
+    ctx.save();
+    ctx.setTransform(width / next.w, 0, 0, height / next.h, -next.x * width / next.w, -next.y * height / next.h);
+    ctx.strokeStyle = night ? ACTIVE_STROKE : DAY_ACTIVE;
+    ctx.lineWidth = 1.6 * next.w / width;
+    ctx.stroke(path);
+    ctx.restore();
+  }, [activeIbge, night]);
 
   useLayoutEffect(() => {
-    // The path rebuild reads this. Writing it first keeps the new cities colored.
-    paintArgs.current = { fills, mode, focusPrefix, night, activeIbge };
-  });
+    pathsRef.current = shapes.map((shape) => new Path2D(shape.d));
+    idsRef.current = shapes.map((shape) => shape.ibge);
+    const scale = CITY_SCALE;
+    const cache = document.createElement("canvas");
+    cache.width = WIDTH * scale;
+    cache.height = HEIGHT * scale;
+    const ctx = cache.getContext("2d");
+    if (!ctx) return;
+    const empty = night ? MAP_EMPTY : DAY_EMPTY;
+    ctx.scale(scale, scale);
+    ctx.fillStyle = empty;
+    ctx.fillRect(0, 0, WIDTH, HEIGHT);
+    ctx.lineWidth = 0.35;
+    ctx.strokeStyle = "#000000";
+    const paths = pathsRef.current;
+    const ids = idsRef.current;
+    for (let index = 0; index < paths.length; index += 1) {
+      const ibge = ids[index];
+      if (focusPrefix && !ibge.startsWith(focusPrefix)) continue;
+      const raw = fills[ibge];
+      ctx.fillStyle = !raw || (!night && raw === MAP_EMPTY) ? empty : raw;
+      ctx.fill(paths[index]);
+      ctx.stroke(paths[index]);
+    }
+    cacheRef.current = cache;
+
+    const hit = document.createElement("canvas");
+    hit.width = WIDTH;
+    hit.height = HEIGHT;
+    const hitCtx = hit.getContext("2d", { willReadFrequently: true });
+    if (hitCtx) {
+      hitCtx.fillStyle = "#000000";
+      hitCtx.fillRect(0, 0, WIDTH, HEIGHT);
+      for (let index = 0; index < paths.length; index += 1) {
+        const ibge = ids[index];
+        if (focusPrefix && !ibge.startsWith(focusPrefix)) continue;
+        const id = index + 1;
+        hitCtx.fillStyle = `rgb(${id & 255},${(id >> 8) & 255},${(id >> 16) & 255})`;
+        hitCtx.fill(paths[index]);
+      }
+      hitRef.current = hit;
+    }
+    paint(viewRef.current);
+  }, [fills, focusPrefix, night, paint, shapes]);
 
   useLayoutEffect(() => {
-    const group = ref.current;
-    if (!group) return;
-    let cancelled = false;
-    let index = 0;
-    group.replaceChildren();
-    const step = () => {
-      if (cancelled || !group.isConnected) return;
-      const fragment = document.createDocumentFragment();
-      const end = Math.min(shapes.length, index + 900);
-      for (; index < end; index += 1) {
-        const shape = shapes[index];
-        const path = document.createElementNS(SVG_NS, "path");
-        path.setAttribute("d", shape.d);
-        path.setAttribute("data-id", shape.ibge);
-        path.setAttribute("fill", MAP_EMPTY);
-        path.setAttribute("stroke", MUNI_STROKE);
-        path.setAttribute("stroke-width", BORDER);
-        path.setAttribute("stroke-linejoin", "round");
-        path.setAttribute("vector-effect", "non-scaling-stroke");
-        path.setAttribute("class", "cursor-pointer");
-        fragment.appendChild(path);
-      }
-      group.appendChild(fragment);
-      if (index < shapes.length) {
-        requestAnimationFrame(step);
-        return;
-      }
-      const args = paintArgs.current;
-      paintCities(group, args.fills, args.mode, args.focusPrefix, args.night, args.activeIbge);
-    };
-    step();
+    blitRef.current = paint;
+    paint(view);
     return () => {
-      cancelled = true;
+      blitRef.current = null;
     };
-  }, [shapes]);
+  }, [blitRef, paint, view]);
 
-  useLayoutEffect(() => {
-    const group = ref.current;
-    if (!group) return;
-    paintCities(group, fills, mode, focusPrefix, night, activeIbge);
-  }, [activeIbge, fills, focusPrefix, mode, night]);
-
-  return <g ref={ref} className="munis" />;
+  return <canvas ref={ref} className="pointer-events-none absolute inset-0 h-full w-full" aria-hidden />;
 });
 
 const StateLayer = memo(function StateLayer({ states }: { states: UfShape[] }) {
@@ -221,12 +241,24 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   const activeRef = useRef<string | null>(null);
   const dragRef = useRef<{ x: number; y: number; view: View; pending: View | null; moved: boolean } | null>(null);
   const tipRef = useRef<HTMLDivElement>(null);
+  const cityBlitRef = useRef<((next: View) => void) | null>(null);
+  const cityHitRef = useRef<HTMLCanvasElement | null>(null);
+  const shapesRef = useRef<Shape[] | null>(null);
+  const viewRef = useRef(view);
   const skipClick = useRef(false);
   const fittedRef = useRef<View>(HOME);
 
   useEffect(() => {
     activeRef.current = activeIbge;
   }, [activeIbge]);
+
+  useEffect(() => {
+    shapesRef.current = shapes;
+  }, [shapes]);
+
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
 
   useEffect(() => {
     setCursor(null);
@@ -300,13 +332,28 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     if (previous) paintStroke(previous, previous.getAttribute("data-id") === activeRef.current);
   }, []);
 
+
+  function pickCity(clientX: number, clientY: number, rect: DOMRect) {
+    const hit = cityHitRef.current;
+    const shapesNow = shapesRef.current;
+    if (!hit || !shapesNow) return null;
+    const current = dragRef.current?.pending ?? viewRef.current;
+    const vx = current.x + ((clientX - rect.left) / rect.width) * current.w;
+    const vy = current.y + ((clientY - rect.top) / rect.height) * current.h;
+    const ctx = hit.getContext("2d", { willReadFrequently: true });
+    if (!ctx) return null;
+    const pixel = ctx.getImageData(Math.max(0, Math.min(WIDTH - 1, Math.floor(vx))), Math.max(0, Math.min(HEIGHT - 1, Math.floor(vy))), 1, 1).data;
+    const id = pixel[0] + (pixel[1] << 8) + (pixel[2] << 16);
+    return id ? shapesNow[id - 1]?.ibge ?? null : null;
+  }
+
   const onShapeMove = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
-    const target = event.target;
-    if (!(target instanceof SVGPathElement)) return;
     const rect = wrapRef.current?.getBoundingClientRect();
     if (!rect) return;
-    const uf = target.getAttribute("data-uf");
+    const target = event.target;
     if (mode === "estadual") {
+      if (!(target instanceof SVGPathElement)) return;
+      const uf = target.getAttribute("data-uf");
       if (!uf) return;
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
@@ -316,17 +363,8 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       setCursor((current) => current?.kind === "state" && current.id === uf ? current : { kind: "state", id: uf, x, y, flipX, flipY });
       return;
     }
-    const ibge = target.getAttribute("data-id");
+    const ibge = pickCity(event.clientX, event.clientY, rect);
     if (!ibge) return;
-    if (hoverNode.current !== target) {
-      const previous = hoverNode.current;
-      if (previous) paintStroke(previous, previous.getAttribute("data-id") === activeRef.current);
-      hoverNode.current = target;
-      if (ibge !== activeRef.current) {
-        target.setAttribute("stroke", "#000000");
-        target.setAttribute("stroke-width", "0.6");
-      }
-    }
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
     const flipX = x > rect.width * 0.58;
@@ -344,18 +382,20 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   }
 
   const onShapeClick = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
-    const target = event.target;
-    if (!(target instanceof SVGPathElement)) return;
     if (skipClick.current) {
       skipClick.current = false;
       return;
     }
+    const target = event.target;
     if (mode === "estadual") {
+      if (!(target instanceof SVGPathElement)) return;
       const uf = target.getAttribute("data-uf");
       if (uf) onSelectState(uf);
       return;
     }
-    const ibge = target.getAttribute("data-id");
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (!rect) return;
+    const ibge = pickCity(event.clientX, event.clientY, rect);
     if (ibge) onSelect(ibge);
   }, [mode, onSelect, onSelectState]);
 
@@ -380,6 +420,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     const next = clampView({ ...drag.view, x: drag.view.x - dx * scaleX, y: drag.view.y - dy * scaleY });
     drag.pending = next;
     if (svgRef.current) applyViewBox(svgRef.current, next);
+    cityBlitRef.current?.(next);
   }
 
   function onPointerUp() {
@@ -400,6 +441,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
 
   return (
     <div ref={wrapRef} className="relative overflow-hidden">
+      {mode === "municipal" ? <CityCanvas shapes={shapes} fills={fills} focusPrefix={focusPrefix} night={night} activeIbge={activeIbge} view={view} blitRef={cityBlitRef} hitRef={cityHitRef} /> : null}
       <svg
         ref={svgRef}
         viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
@@ -416,7 +458,6 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
         onClick={onShapeClick}
         onMouseLeave={() => { clearHover(); setCursor(null); }}
       >
-        {mode === "municipal" ? <PathLayer shapes={shapes} fills={fills} mode={mode} focusPrefix={focusPrefix} night={night} activeIbge={activeIbge} /> : null}
         <StateLayer states={states} />
         {borders ? (
           <path d={borders} fill="none" stroke="#000000" strokeWidth={STATE_BORDER} strokeLinejoin="round" vectorEffect="non-scaling-stroke" pointerEvents="none" />
