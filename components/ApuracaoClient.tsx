@@ -638,9 +638,12 @@ export function ApuracaoClient() {
                 <h2 className="text-base font-semibold text-neutral-950">{officeHeading(office, selected)}</h2>
                 <p className="text-xs text-neutral-500">{shown ? (tallyComplete(shown, office) ? "Apuração encerrada" : andamentoLabel(shown.andamento)) : municipio ? "Carregando município" : "Carregando resultados"}</p>
               </div>
-              <div className="shrink-0 text-right">
-                <p className="text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
-                {shown ? <p className="mt-1 text-xs font-medium text-neutral-500">{formatPercent(shown.sectionsPct)}% das urnas apuradas</p> : null}
+              <div className="flex shrink-0 items-start gap-2">
+                <div className="text-right">
+                  <p className="text-xs text-neutral-400">{clock ? `Atualizado às ${clock}` : "Atualizando"}</p>
+                  {shown ? <p className="mt-1 text-xs font-medium text-neutral-500">{formatPercent(shown.sectionsPct)}% das urnas apuradas</p> : null}
+                </div>
+                {municipio ? <button type="button" aria-label="Fechar resultado do município" onClick={() => { setMunicipio(""); setMunTally(null); setQuery(""); }} className="flex h-8 w-8 items-center justify-center rounded-full bg-neutral-100 text-lg leading-none text-neutral-700">×</button> : null}
               </div>
             </div>
             <div className="mb-2 grid grid-cols-2 gap-2">

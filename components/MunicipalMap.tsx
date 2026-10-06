@@ -30,6 +30,8 @@ const HEIGHT = 680;
 const MIN_VIEW = 70;
 const MUNI_STROKE = "#000000";
 const DAY_EMPTY = "#ffffff";
+const PAGE_NIGHT = "#0F0E0D";
+const PAGE_DAY = "#ffffff";
 const DAY_SEAM = "#000000";
 const DAY_ACTIVE = "#171717";
 const BORDER = "0.25";
@@ -147,8 +149,9 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
       ctx.drawImage(cache, next.x * CITY_SCALE, next.y * CITY_SCALE, next.w * CITY_SCALE, next.h * CITY_SCALE, 0, 0, width, height);
     } else {
       const empty = night ? MAP_EMPTY : DAY_EMPTY;
+      const page = night ? PAGE_NIGHT : PAGE_DAY;
       ctx.setTransform(width / next.w, 0, 0, height / next.h, -next.x * width / next.w, -next.y * height / next.h);
-      ctx.fillStyle = empty;
+      ctx.fillStyle = page;
       ctx.fillRect(next.x - 2, next.y - 2, next.w + 4, next.h + 4);
       ctx.lineWidth = Math.max(0.15, next.w / width);
       ctx.strokeStyle = "#000000";
@@ -185,8 +188,9 @@ const CityCanvas = memo(function CityCanvas({ shapes, fills, focusPrefix, night,
     const ctx = cache.getContext("2d");
     if (!ctx) return;
     const empty = night ? MAP_EMPTY : DAY_EMPTY;
+    const page = night ? PAGE_NIGHT : PAGE_DAY;
     ctx.scale(scale, scale);
-    ctx.fillStyle = empty;
+    ctx.fillStyle = page;
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
     ctx.lineWidth = 0.35;
     ctx.strokeStyle = "#000000";
@@ -495,7 +499,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   const showMarks = Boolean(focusUf) || view.w > 240;
 
   return (
-    <div ref={wrapRef} className="relative overflow-hidden">
+    <div ref={wrapRef} className="relative overflow-hidden" style={{ background: night ? PAGE_NIGHT : PAGE_DAY }}>
       {mode === "municipal" ? <CityCanvas shapes={shapes} fills={fills} focusPrefix={focusPrefix} night={night} activeIbge={activeIbge} view={view} blitRef={cityBlitRef} hitRef={cityHitRef} /> : null}
       <svg
         ref={svgRef}
