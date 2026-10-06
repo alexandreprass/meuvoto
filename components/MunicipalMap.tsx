@@ -36,6 +36,8 @@ const BORDER = "0.25";
 const STATE_BORDER = "1.8";
 const ACTIVE_STROKE = "#FAFAF9";
 const ACTIVE_WIDTH = "1.7";
+const LULA_STRONG = "#991B1B";
+const FLAVIO_STRONG = "#14532D";
 const SVG_NS = "http://www.w3.org/2000/svg";
 const SMALL = new Set(["DF", "SE", "AL", "RN", "PB", "ES", "RJ", "SC"]);
 const NUDGE: Record<string, [number, number]> = {
@@ -90,6 +92,17 @@ function nightOn() {
   return document.documentElement.classList.contains("dark");
 }
 
+function strongerWinner(color: string) {
+  const hex = color.trim().toLowerCase();
+  if (hex === LULA_SOLID.toLowerCase()) return LULA_STRONG;
+  if (hex === FLAVIO_SOLID.toLowerCase()) return FLAVIO_STRONG;
+  return color;
+}
+
+function applyViewBox(svg: SVGSVGElement, view: View) {
+  svg.setAttribute("viewBox", `${view.x} ${view.y} ${view.w} ${view.h}`);
+}
+
 function paintStroke(path: SVGPathElement, active: boolean) {
   const night = nightOn();
   path.setAttribute("stroke", active ? (night ? ACTIVE_STROKE : DAY_ACTIVE) : (night ? MUNI_STROKE : DAY_SEAM));
@@ -127,22 +140,38 @@ const PathLayer = memo(function PathLayer({ shapes, fills, mode, focusPrefix, ni
   useLayoutEffect(() => {
     const group = ref.current;
     if (!group) return;
-    const fragment = document.createDocumentFragment();
-    for (const shape of shapes) {
-      const path = document.createElementNS(SVG_NS, "path");
-      path.setAttribute("d", shape.d);
-      path.setAttribute("data-id", shape.ibge);
-      path.setAttribute("fill", MAP_EMPTY);
-      path.setAttribute("stroke", MUNI_STROKE);
-      path.setAttribute("stroke-width", BORDER);
-      path.setAttribute("stroke-linejoin", "round");
-      path.setAttribute("vector-effect", "non-scaling-stroke");
-      path.setAttribute("class", "cursor-pointer");
-      fragment.appendChild(path);
-    }
-    group.replaceChildren(fragment);
-    const args = paintArgs.current;
-    paintCities(group, args.fills, args.mode, args.focusPrefix, args.night, args.activeIbge);
+    let cancelled = false;
+    let index = 0;
+    group.replaceChildren();
+    const step = () => {
+      if (cancelled || !group.isConnected) return;
+      const fragment = document.createDocumentFragment();
+      const end = Math.min(shapes.length, index + 900);
+      for (; index < end; index += 1) {
+        const shape = shapes[index];
+        const path = document.createElementNS(SVG_NS, "path");
+        path.setAttribute("d", shape.d);
+        path.setAttribute("data-id", shape.ibge);
+        path.setAttribute("fill", MAP_EMPTY);
+        path.setAttribute("stroke", MUNI_STROKE);
+        path.setAttribute("stroke-width", BORDER);
+        path.setAttribute("stroke-linejoin", "round");
+        path.setAttribute("vector-effect", "non-scaling-stroke");
+        path.setAttribute("class", "cursor-pointer");
+        fragment.appendChild(path);
+      }
+      group.appendChild(fragment);
+      if (index < shapes.length) {
+        requestAnimationFrame(step);
+        return;
+      }
+      const args = paintArgs.current;
+      paintCities(group, args.fills, args.mode, args.focusPrefix, args.night, args.activeIbge);
+    };
+    step();
+    return () => {
+      cancelled = true;
+    };
   }, [shapes]);
 
   useLayoutEffect(() => {
@@ -190,7 +219,8 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   const activeNode = useRef<SVGPathElement | null>(null);
   const hoverNode = useRef<SVGPathElement | null>(null);
   const activeRef = useRef<string | null>(null);
-  const dragRef = useRef<{ x: number; y: number; view: View; moved: boolean } | null>(null);
+  const dragRef = useRef<{ x: number; y: number; view: View; pending: View | null; moved: boolean } | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
   const skipClick = useRef(false);
   const fittedRef = useRef<View>(HOME);
 
@@ -217,7 +247,6 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     const svg = svgRef.current;
     if (!svg || !shapes) return;
     const empty = night ? MAP_EMPTY : DAY_EMPTY;
-    const stateActive = night ? ACTIVE_STROKE : "#000000";
     svg.querySelectorAll("g.estados path").forEach((node) => {
       if (!(node instanceof SVGPathElement)) return;
       const uf = node.getAttribute("data-uf") ?? "";
@@ -225,10 +254,11 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       const hideState = mode !== "estadual" || (focusUf && uf !== focusUf);
       if (hideState) node.setAttribute("display", "none");
       else node.removeAttribute("display");
-      const color = stateFills[uf] || empty;
+      const base = stateFills[uf] || empty;
+      const color = selected ? strongerWinner(base) : base;
       node.setAttribute("fill", color);
-      node.setAttribute("stroke", selected ? stateActive : color);
-      node.setAttribute("stroke-width", selected ? "2.2" : "0.8");
+      node.setAttribute("stroke", color);
+      node.setAttribute("stroke-width", selected ? "1.2" : "0.8");
       node.setAttribute("pointer-events", mode === "estadual" ? "auto" : "none");
     });
   }, [activeUf, focusUf, mode, night, shapes, stateFills]);
@@ -280,7 +310,10 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       if (!uf) return;
       const x = event.clientX - rect.left;
       const y = event.clientY - rect.top;
-      setCursor({ kind: "state", id: uf, x, y, flipX: x > rect.width * 0.58, flipY: y > rect.height * 0.62 });
+      const flipX = x > rect.width * 0.58;
+      const flipY = y > rect.height * 0.62;
+      placeTip(x, y, flipX, flipY);
+      setCursor((current) => current?.kind === "state" && current.id === uf ? current : { kind: "state", id: uf, x, y, flipX, flipY });
       return;
     }
     const ibge = target.getAttribute("data-id");
@@ -296,15 +329,19 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     }
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    setCursor({
-      kind: "city",
-      id: ibge,
-      x,
-      y,
-      flipX: x > rect.width * 0.58,
-      flipY: y > rect.height * 0.62,
-    });
+    const flipX = x > rect.width * 0.58;
+    const flipY = y > rect.height * 0.62;
+    placeTip(x, y, flipX, flipY);
+    setCursor((current) => current?.kind === "city" && current.id === ibge ? current : { kind: "city", id: ibge, x, y, flipX, flipY });
   }, [mode]);
+
+  function placeTip(x: number, y: number, flipX: boolean, flipY: boolean) {
+    const tip = tipRef.current;
+    if (!tip) return;
+    tip.style.left = `${x}px`;
+    tip.style.top = `${y}px`;
+    tip.style.transform = `translate(${flipX ? "calc(-100% - 14px)" : "14px"}, ${flipY ? "calc(-100% - 8px)" : "14px"})`;
+  }
 
   const onShapeClick = useCallback((event: ReactMouseEvent<SVGSVGElement>) => {
     const target = event.target;
@@ -325,7 +362,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
   function onPointerDown(event: ReactPointerEvent<SVGSVGElement>) {
     if (event.button !== 0) return;
     skipClick.current = false;
-    dragRef.current = { x: event.clientX, y: event.clientY, view, moved: false };
+    dragRef.current = { x: event.clientX, y: event.clientY, view, pending: null, moved: false };
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
@@ -340,11 +377,15 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
     skipClick.current = true;
     const scaleX = drag.view.w / rect.width;
     const scaleY = drag.view.h / rect.height;
-    setView(clampView({ ...drag.view, x: drag.view.x - dx * scaleX, y: drag.view.y - dy * scaleY }));
+    const next = clampView({ ...drag.view, x: drag.view.x - dx * scaleX, y: drag.view.y - dy * scaleY });
+    drag.pending = next;
+    if (svgRef.current) applyViewBox(svgRef.current, next);
   }
 
   function onPointerUp() {
+    const drag = dragRef.current;
     dragRef.current = null;
+    if (drag?.pending) setView(drag.pending);
   }
 
   if (!shapes) {
@@ -398,6 +439,7 @@ export function MunicipalMap({ mode, fills, stateFills, activeIbge, activeUf, fo
       </svg>
       {cursor ? (
         <div
+          ref={tipRef}
           className="map-tip pointer-events-none absolute z-20 w-52 rounded-2xl border p-2.5 shadow-lg"
           style={{
             left: cursor.x,
