@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+name: Deploy Apuração 2026 to Meu Voto
 
 on:
   push:
@@ -18,22 +18,30 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout do painel eleitoral
+        uses: actions/checkout@v4
+        with:
+          repository: alexandreprass/apuracao-tse-2026
+          ref: main
+          path: site
       - uses: actions/configure-pages@v5
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
-      - run: npm ci
-      - name: Build static site
-        run: npm run build
-        env:
-          # Custom domain serves the site at /, not /meuvoto.
-          PAGES_BASE_PATH: ""
-          NEXT_PUBLIC_BASE_PATH: ""
+          cache-dependency-path: site/package-lock.json
+      - name: Instalar dependências
+        run: npm ci
+        working-directory: ./site
+      - name: Ajustar endereço canônico para Meu Voto
+        run: sed -i 's|https://alexandreprass.github.io/apuracao-tse-2026/|https://meuvoto.digital/|g' index.html
+        working-directory: ./site
+      - name: Compilar para o domínio Meu Voto
+        run: npm run build -- --base=/
+        working-directory: ./site
       - uses: actions/upload-pages-artifact@v3
         with:
-          path: ./out
+          path: ./site/dist
 
   deploy:
     environment:
