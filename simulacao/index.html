@@ -1,0 +1,492 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <script>
+    (function () {
+      var path = location.pathname;
+      if (!path.endsWith('/')) {
+        if (/\.[a-z0-9]+$/i.test(path)) path = path.replace(/[^/]+$/, '');
+        else path += '/';
+      }
+      var base = document.createElement('base');
+      base.href = location.origin + path;
+      document.head.appendChild(base);
+    })();
+  </script>
+  <title>MEUVOTO.DIGITAL</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <style>
+    :root {
+      --bg: #12110f;
+      --red: #d71920;
+      --green: #128a3e;
+      --screen: #d5e6ea;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; }
+    body {
+      font-family: "Segoe UI", system-ui, sans-serif;
+      color: #f6f3ee;
+      background:
+        radial-gradient(900px 420px at 70% 0%, rgba(215, 25, 32, 0.16), transparent 60%),
+        radial-gradient(800px 420px at 10% 0%, rgba(18, 138, 62, 0.14), transparent 55%),
+        var(--bg);
+    }
+    .top {
+      position: sticky;
+      top: 0;
+      z-index: 5;
+      padding: 16px 20px 12px;
+      background: rgba(18, 17, 15, 0.92);
+      backdrop-filter: blur(10px);
+    }
+    .brand {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      gap: 12px;
+      max-width: 1180px;
+      margin: 0 auto 12px;
+    }
+    h1 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: 0.02em; }
+    #online { margin: 0; color: #b7b1a8; font-size: 13px; }
+    .scoreboard {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+    }
+    .score {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      min-height: 88px;
+      padding: 10px 14px;
+      background: #1c1b19;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 18px;
+    }
+    .score.pop { transform: scale(1.04); }
+    .score img {
+      width: 64px;
+      height: 64px;
+      border-radius: 14px;
+      object-fit: cover;
+      object-position: center 20%;
+      background: #2a2926;
+    }
+    .score span { display: block; color: #b7b1a8; font-size: 13px; }
+    .score strong {
+      display: block;
+      font-size: 40px;
+      line-height: 1;
+      font-variant-numeric: tabular-nums;
+    }
+    .lula strong { color: #ff5d57; }
+    .flavio { flex-direction: row-reverse; text-align: right; }
+    .flavio strong { color: #3dce73; }
+    .score.lula,
+    .score.flavio {
+      position: relative;
+      width: 50%;
+      border: none;
+      background: #1c1b19;
+    }
+    .score.lula { justify-self: end; border-radius: 18px 0 0 18px; }
+    .score.flavio { justify-self: start; border-radius: 0 18px 18px 0; }
+    .score.lula::before,
+    .score.flavio::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      border-radius: inherit;
+      padding: 1px;
+      pointer-events: none;
+      background: linear-gradient(90deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0));
+      -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+      -webkit-mask-composite: xor;
+      mask-composite: exclude;
+    }
+    .score.flavio::before {
+      background: linear-gradient(270deg, rgba(255, 255, 255, 0.38), rgba(255, 255, 255, 0));
+    }
+    .score.lula::after,
+    .score.flavio::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      height: 3px;
+      pointer-events: none;
+    }
+    .score.lula::after { background: linear-gradient(90deg, var(--red), transparent); }
+    .score.flavio::after { background: linear-gradient(270deg, var(--green), transparent); }
+    .center-score {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+    }
+    .share {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 28px;
+      font-weight: 800;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+    .lula-share { color: #ff5d57; }
+    .flavio-share { color: #3dce73; }
+    .trend { width: 14px; font-size: 15px; line-height: 1; }
+    .trend.up { color: #3dce73; }
+    .trend.down { color: #ff5d57; }
+    .total { justify-content: center; text-align: center; }
+    .total strong { font-size: 36px; }
+    .race { max-width: 1180px; margin: 10px auto 0; }
+    .race-bar {
+      display: flex;
+      height: 16px;
+      border-radius: 999px;
+      overflow: hidden;
+      background: #2a2926;
+    }
+    #lula-bar, #flavio-bar { height: 100%; width: 0; transition: width 0.55s ease; }
+    #lula-bar { background: var(--red); }
+    #flavio-bar { background: var(--green); }
+    .stage {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 18px 20px 48px;
+      display: grid;
+      grid-template-columns: minmax(180px, 420px) minmax(420px, 680px);
+      gap: 18px;
+      align-items: center;
+      justify-content: center;
+    }
+    .map-panel { min-width: 0; }
+    .atlas { display: flex; align-items: center; justify-content: center; gap: 8px; }
+    #map-container { width: 100%; max-width: 250px; margin: 0 auto; }
+    #globe { width: 42px; flex: none; align-self: flex-end; margin-bottom: 28px; }
+    .globe-face {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      overflow: hidden;
+      display: grid;
+      place-items: center;
+      background: radial-gradient(circle at 32% 28%, #6eb6ea, #1a5fa8 72%);
+      box-shadow: inset -5px -3px 6px rgba(0, 0, 0, 0.28), 0 0 0 2px #d5dbe0;
+    }
+    #globe-container { width: 42px; height: 42px; display: grid; place-items: center; }
+    #globe-container svg { width: 59px; height: auto; }
+    #globe-container path { fill: #efe6d4; stroke: #1a5fa8; stroke-width: 0.6; }
+    .globe-face.red {
+      background: radial-gradient(circle at 32% 28%, #ff6b66, #8e1218 74%);
+    }
+    .globe-face.green {
+      background: radial-gradient(circle at 32% 28%, #3dce73, #0b5a2c 74%);
+    }
+    .globe-face.red #globe-container path { fill: #ffd2cf; stroke: #6d1015; }
+    .globe-face.green #globe-container path { fill: #d9ffe8; stroke: #084824; }
+    .globe-label { margin: 3px 0 0; text-align: center; color: #b7b1a8; font-size: 10px; }
+    #map-container svg { width: 100%; height: auto; display: block; }
+    #map-container .state {
+      fill: #3c424c;
+      stroke: #12110f;
+      stroke-width: 1.3;
+      cursor: default;
+      transition: fill 0.35s ease;
+    }
+    #map-container .state.red { fill: var(--red); }
+    #map-container .state.green { fill: var(--green); }
+    #map-container .state:hover { filter: brightness(1.15); }
+    .legend, #map-tip { margin: 8px 0 0; color: #b7b1a8; font-size: 13px; text-align: center; }
+    .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin: 0 4px 0 10px; }
+    .dot.red { background: var(--red); margin-left: 0; }
+    .dot.green { background: var(--green); }
+    .urna-scene { perspective: 1100px; }
+    .urna {
+      color: #1a1a1a;
+      transform: rotateX(8deg);
+      transform-origin: center bottom;
+    }
+    .urna-shell {
+      position: relative;
+      background: linear-gradient(180deg, #f3f3f3 0%, #d5d5d5 16%, #c8c8c8 55%, #bdbdbd 100%);
+      border-radius: 14px 14px 18px 18px;
+      padding: 16px 16px 18px;
+      box-shadow:
+        inset 0 1px 0 #fff,
+        inset 0 -10px 16px rgba(0, 0, 0, 0.08),
+        0 28px 30px rgba(0, 0, 0, 0.45);
+    }
+    .urna-shell::after {
+      content: "";
+      position: absolute;
+      left: 5%;
+      right: 5%;
+      bottom: -13px;
+      height: 14px;
+      background: linear-gradient(#8a8a8a, #5a5a5a);
+      border-radius: 0 0 12px 12px;
+      z-index: -1;
+    }
+    .urna-face { display: grid; grid-template-columns: 1.5fr 0.82fr; gap: 14px; align-items: end; }
+    .screen {
+      position: relative;
+      background: linear-gradient(180deg, #eef8f8 0%, #d4ecec 45%, #c5e3e3 100%);
+      border-radius: 3px;
+      min-height: 248px;
+      padding: 12px 12px 10px;
+      border: 7px solid #d3d3d3;
+      box-shadow: inset 0 0 0 2px #8ea4a6, inset 0 8px 16px rgba(255, 255, 255, 0.35);
+      overflow: hidden;
+    }
+    .screen::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      right: 0;
+      top: 0;
+      height: 28%;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.28), transparent);
+      pointer-events: none;
+    }
+    .kicker { font-size: 12px; letter-spacing: 0.06em; font-weight: 700; }
+    .office { font-size: 26px; font-weight: 800; margin-top: 1px; letter-spacing: 0.01em; }
+    .screen-body { display: flex; justify-content: space-between; gap: 8px; margin-top: 14px; }
+    .num-label { font-size: 12px; letter-spacing: 0.12em; font-weight: 700; }
+    .digits { display: flex; gap: 8px; margin: 4px 0 12px; }
+    .digits span {
+      width: 42px;
+      height: 48px;
+      border: 2px solid #1d1d1d;
+      display: grid;
+      place-items: center;
+      font-size: 30px;
+      font-weight: 800;
+      background: rgba(255, 255, 255, 0.45);
+    }
+    #cand-name { font-size: 18px; font-weight: 800; min-height: 22px; }
+    #cand-party { font-size: 14px; min-height: 18px; }
+    .photo-box {
+      width: 112px;
+      height: 132px;
+      border: 2px solid #7f989b;
+      background: #d5e7e8;
+      display: grid;
+      place-items: center;
+      flex: none;
+    }
+    .photo-box img { width: 100%; height: 100%; object-fit: cover; object-position: center 15%; }
+    .silhouette {
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #8aa3a6;
+      box-shadow: 0 28px 0 10px #8aa3a6;
+      margin-top: -18px;
+    }
+    #screen-help { margin: 16px 0 0; font-size: 12px; line-height: 1.35; min-height: 32px; }
+    .fim-banner {
+      display: none;
+      position: absolute;
+      inset: 0;
+      place-items: center;
+      background: #d4ecec;
+      font-size: 72px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+    }
+    .screen.fim .fim-banner { display: grid; }
+    .side { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .seal { display: flex; align-items: center; justify-content: flex-end; gap: 8px; color: #2a2a2a; }
+    .arms { width: 46px; height: 46px; flex: none; }
+    .seal-text { font-size: 12px; font-weight: 800; letter-spacing: 0.04em; line-height: 1.05; }
+    .pad { background: #141518; border-radius: 4px; padding: 10px 10px 8px; box-shadow: inset 0 0 0 1px #000; }
+    .keys { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+    .keys button {
+      border: 0;
+      border-radius: 3px;
+      min-height: 38px;
+      font: inherit;
+      font-weight: 800;
+      font-size: 18px;
+      background: linear-gradient(180deg, #f7f7f7 0%, #d9d9d9 100%);
+      color: #161616;
+      box-shadow: 0 2px 0 #050505, inset 0 1px 0 #fff;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+    .keys button:active { transform: translateY(1px); box-shadow: 0 1px 0 #050505, inset 0 1px 0 #fff; }
+    .keys .branco { font-size: 10px; letter-spacing: 0.02em; }
+    .keys .corrige {
+      background: linear-gradient(180deg, #ff8d1f 0%, #e25d00 100%);
+      color: #fff;
+      font-size: 10px;
+    }
+    .keys .confirma {
+      background: linear-gradient(180deg, #22c255 0%, #078a38 100%);
+      color: #fff;
+      font-size: 10px;
+    }
+    .spacer { visibility: hidden; }
+    footer { text-align: center; color: #8d877e; font-size: 12px; padding: 0 16px 28px; }
+    .fly {
+      position: fixed;
+      z-index: 40;
+      width: 38px;
+      height: 38px;
+      margin: -19px 0 0 -19px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: white;
+      font-size: 13px;
+      font-weight: 800;
+      pointer-events: none;
+      box-shadow: 0 8px 18px rgba(0, 0, 0, 0.35);
+      transition: transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1), opacity 0.9s ease;
+    }
+    .fly.lula { background: var(--red); }
+    .fly.flavio { background: var(--green); }
+    @media (max-width: 860px) {
+      .scoreboard { grid-template-columns: 1fr 1fr; }
+      .center-score { grid-column: 1 / -1; order: -1; gap: 10px; }
+      .share { font-size: 20px; }
+      .stage { grid-template-columns: 1fr; }
+      .atlas { gap: 6px; }
+      #map-container { width: auto; max-width: 190px; }
+      #globe { margin-bottom: 8px; }
+      #globe, .globe-face, #globe-container { width: 32px; }
+      .globe-face, #globe-container { height: 32px; }
+      #globe-container svg { width: 46px; }
+      .score.lula, .score.flavio { width: 100%; }
+      .score strong { font-size: 32px; }
+      .urna { transform: none; }
+      .urna-face { grid-template-columns: 1fr; }
+      .seal { justify-content: flex-start; }
+    }
+  </style>
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>MEUVOTO.DIGITAL</h1>
+      <p id="online">Detectando seu estado...</p>
+    </div>
+    <div class="scoreboard">
+      <article class="score lula" id="lula-score">
+        <img src="lula.webp" alt="Lula">
+        <div>
+          <span>Lula · 13</span>
+          <strong id="lula-count">0</strong>
+        </div>
+      </article>
+      <div class="center-score">
+        <span class="share lula-share"><span id="lula-pct">0%</span><span id="lula-trend" class="trend"></span></span>
+        <article class="score total">
+          <div>
+            <span>Total</span>
+            <strong id="total-count">0</strong>
+          </div>
+        </article>
+        <span class="share flavio-share"><span id="flavio-trend" class="trend"></span><span id="flavio-pct">0%</span></span>
+      </div>
+      <article class="score flavio" id="flavio-score">
+        <img src="flavio.webp" alt="Flávio Bolsonaro">
+        <div>
+          <span>Flávio · 22</span>
+          <strong id="flavio-count">0</strong>
+        </div>
+      </article>
+    </div>
+    <div class="race">
+      <div class="race-bar" id="race-bar" role="img" aria-label="Lula 0%, Flávio 0%">
+        <div id="lula-bar"></div>
+        <div id="flavio-bar"></div>
+      </div>
+    </div>
+  </header>
+
+  <main class="stage">
+    <section class="map-panel">
+      <div class="atlas">
+        <div id="globe">
+          <div class="globe-face"><div id="globe-container"></div></div>
+          <p class="globe-label">Exterior</p>
+        </div>
+        <div id="map-container"></div>
+      </div>
+      <p class="legend"><span class="dot red"></span>Lula na frente <span class="dot green"></span>Flávio na frente</p>
+      <p id="map-tip">Passe o mouse no estado ou no exterior para ver os votos.</p>
+    </section>
+
+    <div class="urna-scene">
+    <section class="urna" aria-label="Urna eletrônica">
+      <div class="urna-shell">
+      <div class="urna-face">
+        <div class="screen" id="screen">
+          <div class="kicker">SEU VOTO PARA</div>
+          <div class="office">PRESIDENTE</div>
+          <div class="screen-body">
+            <div>
+              <div class="num-label">NÚMERO</div>
+              <div class="digits"><span id="d1"></span><span id="d2"></span></div>
+              <div id="cand-name"></div>
+              <div id="cand-party"></div>
+            </div>
+            <div class="photo-box">
+              <img id="cand-photo" alt="" hidden>
+              <div class="silhouette" id="silhouette"></div>
+            </div>
+          </div>
+          <p id="screen-help">Digite 13 ou 22 e aperte CONFIRMA.</p>
+          <div class="fim-banner">FIM</div>
+        </div>
+        <div class="side">
+          <div class="seal">
+            <svg class="arms" viewBox="0 0 64 64" aria-hidden="true">
+              <circle cx="32" cy="32" r="30" fill="#f4f4f4" stroke="#2b2b2b" stroke-width="2"></circle>
+              <circle cx="32" cy="32" r="24" fill="none" stroke="#2b2b2b" stroke-width="1.4"></circle>
+              <path fill="#2b2b2b" d="M32 12.5l4.1 12.2h12.8l-10.4 7.6 4 12.2L32 37.2l-10.5 7.3 4-12.2-10.4-7.6h12.8z"></path>
+              <path fill="none" stroke="#2b2b2b" stroke-width="2" d="M14 46c5.2 7 12 10 18 10s12.8-3 18-10"></path>
+            </svg>
+            <div class="seal-text">JUSTIÇA<br>ELEITORAL</div>
+          </div>
+          <div class="pad">
+          <div class="keys">
+            <button type="button" data-key="1">1</button>
+            <button type="button" data-key="2">2</button>
+            <button type="button" data-key="3">3</button>
+            <button type="button" data-key="4">4</button>
+            <button type="button" data-key="5">5</button>
+            <button type="button" data-key="6">6</button>
+            <button type="button" data-key="7">7</button>
+            <button type="button" data-key="8">8</button>
+            <button type="button" data-key="9">9</button>
+            <button type="button" class="spacer" tabindex="-1"></button>
+            <button type="button" data-key="0">0</button>
+            <button type="button" class="spacer" tabindex="-1"></button>
+            <button type="button" class="branco" data-key="branco">BRANCO</button>
+            <button type="button" class="corrige" data-key="corrige">CORRIGE</button>
+            <button type="button" class="confirma" data-key="confirma">CONFIRMA</button>
+          </div>
+        </div>
+        </div>
+      </div>
+      </div>
+    </section>
+    </div>
+  </main>
+
+  <footer>Simulador independente. Não é votação oficial e não tem ligação com o TSE.</footer>
+  <script src="script.js?v=8"></script>
+</body>
+</html>

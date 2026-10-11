@@ -18,6 +18,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
+      - name: Checkout do repositório Meu Voto
+        uses: actions/checkout@v4
       - name: Checkout do painel eleitoral
         uses: actions/checkout@v4
         with:
@@ -39,6 +41,11 @@ jobs:
       - name: Compilar para o domínio Meu Voto
         run: npm run build -- --base=/
         working-directory: ./site
+      - name: Publicar a simulação em /simulacao
+        run: |
+          mkdir -p site/dist/simulacao
+          cp -a simulacao/. site/dist/simulacao/
+          sed -i '0,/<head>/{s|<head>|<head><script>if(!location.hash)location.replace("/simulacao/");</script>|}' site/dist/index.html
       - uses: actions/upload-pages-artifact@v3
         with:
           path: ./site/dist
